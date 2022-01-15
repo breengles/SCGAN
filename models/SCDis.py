@@ -1,14 +1,16 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
 from torch.nn import Parameter
+
+
 class SCDis(nn.Module):
     """PatchGAN."""
 
-    def __init__(self, image_size=128, conv_dim=64, repeat_num=3, norm='SN'):
+    def __init__(self, image_size=128, conv_dim=64, repeat_num=3, norm="SN"):
         super(SCDis, self).__init__()
 
         layers = []
-        if norm == 'SN':
+        if norm == "SN":
             layers.append(spectral_norm(nn.Conv2d(3, conv_dim, kernel_size=4, stride=2, padding=1)))
         else:
             layers.append(nn.Conv2d(3, conv_dim, kernel_size=4, stride=2, padding=1))
@@ -16,7 +18,7 @@ class SCDis(nn.Module):
 
         curr_dim = conv_dim
         for i in range(1, repeat_num):
-            if norm == 'SN':
+            if norm == "SN":
                 layers.append(spectral_norm(nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=4, stride=2, padding=1)))
             else:
                 layers.append(nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=4, stride=2, padding=1))
@@ -24,7 +26,7 @@ class SCDis(nn.Module):
             curr_dim = curr_dim * 2
 
         # k_size = int(image_size / np.power(2, repeat_num))
-        if norm == 'SN':
+        if norm == "SN":
             layers.append(spectral_norm(nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=4, stride=1, padding=1)))
         else:
             layers.append(nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=4, stride=1, padding=1))
@@ -32,7 +34,7 @@ class SCDis(nn.Module):
         curr_dim = curr_dim * 2
 
         self.main = nn.Sequential(*layers)
-        if norm == 'SN':
+        if norm == "SN":
             self.conv1 = spectral_norm(nn.Conv2d(curr_dim, 1, kernel_size=4, stride=1, padding=1, bias=False))
         else:
             self.conv1 = nn.Conv2d(curr_dim, 1, kernel_size=4, stride=1, padding=1, bias=False)
@@ -46,6 +48,8 @@ class SCDis(nn.Module):
         out_makeup = self.conv1(h)
         # return out_real.squeeze(), out_makeup.squeeze()
         return out_makeup
+
+
 class SpectralNorm(object):
     def __init__(self):
         self.name = "weight"
@@ -101,27 +105,30 @@ class SpectralNorm(object):
     def remove(self, module):
         weight = self.compute_weight(module)
         delattr(module, self.name)
-        del module._parameters[self.name + '_u']
-        del module._parameters[self.name + '_v']
-        del module._parameters[self.name + '_bar']
+        del module._parameters[self.name + "_u"]
+        del module._parameters[self.name + "_v"]
+        del module._parameters[self.name + "_bar"]
         module.register_parameter(self.name, Parameter(weight.data))
 
     def __call__(self, module, inputs):
         setattr(module, self.name, self.compute_weight(module))
 
+
 def spectral_norm(module):
     SpectralNorm.apply(module)
     return module
 
+
 def remove_spectral_norm(module):
-    name = 'weight'
+    name = "weight"
     for k, hook in module._forward_pre_hooks.items():
         if isinstance(hook, SpectralNorm) and hook.name == name:
             hook.remove(module)
             del module._forward_pre_hooks[k]
             return module
 
-    raise ValueError("spectral_norm of '{}' not found in {}"
-                     .format(name, module))
+    raise ValueError("spectral_norm of '{}' not found in {}".format(name, module))
+
+
 def l2normalize(v, eps=1e-12):
     return v / (v.norm() + eps)

@@ -1,10 +1,12 @@
+import copy
+
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-import copy
+
+
 class GANLoss(nn.Module):
-    def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0,
-                 tensor=torch.FloatTensor):
+    def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0, tensor=torch.FloatTensor):
         super(GANLoss, self).__init__()
         self.real_label = target_real_label
         self.fake_label = target_fake_label
@@ -19,15 +21,13 @@ class GANLoss(nn.Module):
     def get_target_tensor(self, input, target_is_real):
         target_tensor = None
         if target_is_real:
-            create_label = ((self.real_label_var is None) or
-                            (self.real_label_var.numel() != input.numel()))
+            create_label = (self.real_label_var is None) or (self.real_label_var.numel() != input.numel())
             if create_label:
                 real_tensor = self.Tensor(input.size()).fill_(self.real_label)
                 self.real_label_var = Variable(real_tensor, requires_grad=False)
             target_tensor = self.real_label_var
         else:
-            create_label = ((self.fake_label_var is None) or
-                            (self.fake_label_var.numel() != input.numel()))
+            create_label = (self.fake_label_var is None) or (self.fake_label_var.numel() != input.numel())
             if create_label:
                 fake_tensor = self.Tensor(input.size()).fill_(self.fake_label)
                 self.fake_label_var = Variable(fake_tensor, requires_grad=False)
@@ -37,10 +37,13 @@ class GANLoss(nn.Module):
     def forward(self, input, target_is_real):
         target_tensor = self.get_target_tensor(input, target_is_real)
         return self.loss(input, target_tensor)
+
+
 class HistogramLoss(nn.Module):
     def __init__(self):
         super(HistogramLoss, self).__init__()
         self.criterionL1 = torch.nn.L1Loss()
+
     def de_norm(self, x):
         out = (x + 1) / 2
         return out.clamp(0, 1)
@@ -68,9 +71,11 @@ class HistogramLoss(nn.Module):
         input_match = self.to_var(input_match, requires_grad=False)
         loss = self.criterionL1(input_masked, input_match)
         return loss
+
+
 def cal_hist(image):
     """
-        cal cumulative hist for channel list
+    cal cumulative hist for channel list
     """
     hists = []
     for i in range(0, 3):
@@ -91,8 +96,8 @@ def cal_hist(image):
 
 def cal_trans(ref, adj):
     """
-        calculate transfer function
-        algorithm refering to wiki item: Histogram matching
+    calculate transfer function
+    algorithm refering to wiki item: Histogram matching
     """
     table = list(range(0, 256))
     for i in list(range(1, 256)):
@@ -106,10 +111,10 @@ def cal_trans(ref, adj):
 
 def histogram_matching(dstImg, refImg, index):
     """
-        perform histogram matching
-        dstImg is transformed to have the same the histogram with refImg's
-        index[0], index[1]: the index of pixels that need to be transformed in dstImg
-        index[2], index[3]: the index of pixels that to compute histogram in refImg
+    perform histogram matching
+    dstImg is transformed to have the same the histogram with refImg's
+    index[0], index[1]: the index of pixels that need to be transformed in dstImg
+    index[2], index[3]: the index of pixels that to compute histogram in refImg
     """
     index = [x.cpu().numpy().squeeze(0) for x in index]
 
@@ -122,7 +127,6 @@ def histogram_matching(dstImg, refImg, index):
     tables = [cal_trans(hist_dst[i], hist_ref[i]) for i in range(0, 3)]
 
     mid = copy.deepcopy(dst_align)
-
 
     for i in range(0, 3):
         for k in range(0, len(index[0])):

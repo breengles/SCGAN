@@ -1,28 +1,48 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-import os
 import torchvision.models.vgg as models
 
 
 class SCGen(nn.Module):
-
-    def __init__(self, dim, style_dim, n_downsample, n_res, mlp_dim, n_componets, input_dim,  phase='train',activ='relu',
-                 pad_type='reflect', ispartial=False, isinterpolation=False):
+    def __init__(
+        self,
+        dim,
+        style_dim,
+        n_downsample,
+        n_res,
+        mlp_dim,
+        n_componets,
+        input_dim,
+        phase="train",
+        activ="relu",
+        pad_type="reflect",
+        ispartial=False,
+        isinterpolation=False,
+    ):
         super(SCGen, self).__init__()
         self.phase = phase
         self.ispartial = ispartial
         self.isinterpolation = isinterpolation
-        self.PSEnc = PartStyleEncoder(input_dim, dim, int(style_dim / n_componets), norm='none', activ=activ,
-                                      pad_type=pad_type, \
-                                      phase=self.phase, ispartial=self.ispartial, isinterpolation=self.isinterpolation)
-        self.FIEnc = FaceEncoder(n_downsample, n_res, input_dim, dim, 'in', activ, pad_type=pad_type)
-        self.MFDec = MakeupFuseDecoder(n_downsample, n_res, self.FIEnc.output_dim, input_dim, res_norm='adain',
-                                       activ=activ, pad_type=pad_type)
-        self.MLP = MLP(style_dim, self.get_num_adain_params(self.MFDec), mlp_dim, 3, norm='none', activ=activ)
+        self.PSEnc = PartStyleEncoder(
+            input_dim,
+            dim,
+            int(style_dim / n_componets),
+            norm="none",
+            activ=activ,
+            pad_type=pad_type,
+            phase=self.phase,
+            ispartial=self.ispartial,
+            isinterpolation=self.isinterpolation,
+        )
+        self.FIEnc = FaceEncoder(n_downsample, n_res, input_dim, dim, "in", activ, pad_type=pad_type)
+        self.MFDec = MakeupFuseDecoder(
+            n_downsample, n_res, self.FIEnc.output_dim, input_dim, res_norm="adain", activ=activ, pad_type=pad_type
+        )
+        self.MLP = MLP(style_dim, self.get_num_adain_params(self.MFDec), mlp_dim, 3, norm="none", activ=activ)
 
     def forward(self, x, map_x, y1, map_y1, y2, map_y2):
-        if self.phase == 'train':
+        if self.phase == "train":
             fid_x = self.FIEnc(x)
             if self.ispartial or self.isinterpolation:
                 exit()
@@ -30,7 +50,7 @@ class SCGen(nn.Module):
             result = self.fuse(fid_x, code, code)
             return result
 
-        if self.phase == 'test':
+        if self.phase == "test":
             fid_x = self.FIEnc(x)
             fid_y1 = self.FIEnc(y1)
             fid_y2 = self.FIEnc(y2)
@@ -117,7 +137,6 @@ class SCGen(nn.Module):
                     resultss.append(results)
                 return resultss
 
-
     def fuse(self, content, style0, style1, a=0):
         adain_params = self.MLP(style0, style1, a)
         self.assign_adain_params(adain_params, self.MFDec)
@@ -128,12 +147,12 @@ class SCGen(nn.Module):
         # assign the adain_params to the AdaIN layers in model
         for m in model.modules():
             if m.__class__.__name__ == "AdaptiveInstanceNorm2d":
-                mean = adain_params[:, :m.num_features]
-                std = adain_params[:, m.num_features:2 * m.num_features]
+                mean = adain_params[:, : m.num_features]
+                std = adain_params[:, m.num_features : 2 * m.num_features]
                 m.bias = mean.contiguous().view(-1)
                 m.weight = std.contiguous().view(-1)
                 if adain_params.size(1) > 2 * m.num_features:
-                    adain_params = adain_params[:, 2 * m.num_features:]
+                    adain_params = adain_params[:, 2 * m.num_features :]
 
     def get_num_adain_params(self, model):
         # return the number of AdaIN parameters needed by the model
@@ -151,7 +170,7 @@ class PartStyleEncoder(nn.Module):
         self.isinterpolation = isinterpolation
         self.ispartial = ispartial
         vgg19 = models.vgg19(pretrained=False)
-        vgg19.load_state_dict(torch.load('./vgg.pth'))
+        vgg19.load_state_dict(torch.load("./vgg.pth"))
         self.vgg = vgg19.features
 
         for param in self.vgg.parameters():
@@ -174,7 +193,7 @@ class PartStyleEncoder(nn.Module):
 
     def get_features(self, image, model, layers=None):
         if layers is None:
-            layers = {'0': 'conv1_1', '5': 'conv2_1', '10': 'conv3_1', '19': 'conv4_1'}
+            layers = {"0": "conv1_1", "5": "conv2_1", "10": "conv3_1", "19": "conv4_1"}
         features = {}
         x = image
         # model._modules is a dictionary holding each module in the model
@@ -187,18 +206,18 @@ class PartStyleEncoder(nn.Module):
     def componet_enc(self, x):
         vgg_aux = self.get_features(x, self.vgg)
         x = self.conv1(x)
-        x = torch.cat([x, vgg_aux['conv1_1']], dim=1)
+        x = torch.cat([x, vgg_aux["conv1_1"]], dim=1)
         x = self.conv2(x)
-        x = torch.cat([x, vgg_aux['conv2_1']], dim=1)
+        x = torch.cat([x, vgg_aux["conv2_1"]], dim=1)
         x = self.conv3(x)
-        x = torch.cat([x, vgg_aux['conv3_1']], dim=1)
+        x = torch.cat([x, vgg_aux["conv3_1"]], dim=1)
         x = self.conv4(x)
-        x = torch.cat([x, vgg_aux['conv4_1']], dim=1)
+        x = torch.cat([x, vgg_aux["conv4_1"]], dim=1)
         x = self.model(x)
         return x
 
     def forward(self, x, map_x, y1, map_y1, y2, map_y2):
-        if self.phase == 'test':
+        if self.phase == "test":
             # global
             if not self.ispartial:
                 codes = []
@@ -262,7 +281,7 @@ class PartStyleEncoder(nn.Module):
                         code = torch.cat([code, self.componet_enc(yi)], dim=1)
                 codes.append(code)
                 return codes
-        if self.phase == 'train':
+        if self.phase == "train":
             for i in range(0, map_x.size(1)):
                 yi = map_x[:, i, :, :]
                 yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
@@ -293,7 +312,7 @@ class FaceEncoder(nn.Module):
 
 
 class MakeupFuseDecoder(nn.Module):
-    def __init__(self, n_upsample, n_res, dim, output_dim, res_norm='adain', activ='relu', pad_type='zero'):
+    def __init__(self, n_upsample, n_res, dim, output_dim, res_norm="adain", activ="relu", pad_type="zero"):
         super(MakeupFuseDecoder, self).__init__()
 
         self.model = []
@@ -301,11 +320,13 @@ class MakeupFuseDecoder(nn.Module):
         self.model += [ResBlocks(n_res, dim, res_norm, activ, pad_type=pad_type)]
         # upsampling blocks
         for i in range(n_upsample):
-            self.model += [nn.Upsample(scale_factor=2),
-                           ConvBlock(dim, dim // 2, 5, 1, 2, norm='ln', activation=activ, pad_type=pad_type)]
+            self.model += [
+                nn.Upsample(scale_factor=2),
+                ConvBlock(dim, dim // 2, 5, 1, 2, norm="ln", activation=activ, pad_type=pad_type),
+            ]
             dim //= 2
         # use reflection padding in the last conv layer
-        self.model += [ConvBlock(dim, output_dim, 7, 1, 3, norm='none', activation='tanh', pad_type=pad_type)]
+        self.model += [ConvBlock(dim, output_dim, 7, 1, 3, norm="none", activation="tanh", pad_type=pad_type)]
         self.model = nn.Sequential(*self.model)
 
     def forward(self, x):
@@ -316,7 +337,7 @@ class MakeupFuseDecoder(nn.Module):
 # Sequential Models
 ##################################################################################
 class ResBlocks(nn.Module):
-    def __init__(self, num_blocks, dim, norm='in', activation='relu', pad_type='zero'):
+    def __init__(self, num_blocks, dim, norm="in", activation="relu", pad_type="zero"):
         super(ResBlocks, self).__init__()
         self.model = []
         for i in range(num_blocks):
@@ -328,31 +349,33 @@ class ResBlocks(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, input_dim, output_dim, dim, n_blk, norm='none', activ='relu'):
+    def __init__(self, input_dim, output_dim, dim, n_blk, norm="none", activ="relu"):
         super(MLP, self).__init__()
         self.model = []
         self.model += [linearBlock(input_dim, input_dim, norm=norm, activation=activ)]
         self.model += [linearBlock(input_dim, dim, norm=norm, activation=activ)]
         for i in range(n_blk - 2):
             self.model += [linearBlock(dim, dim, norm=norm, activation=activ)]
-        self.model += [linearBlock(dim, output_dim, norm='none', activation='none')]  # no output activations
+        self.model += [linearBlock(dim, output_dim, norm="none", activation="none")]  # no output activations
         self.model = nn.Sequential(*self.model)
 
     def forward(self, style0, style1, a=0):
-        return self.model[3]((1 - a) * self.model[0:3](style0.view(style0.size(0), -1)) + a * self.model[0:3](
-            style1.view(style1.size(0), -1)))
+        return self.model[3](
+            (1 - a) * self.model[0:3](style0.view(style0.size(0), -1))
+            + a * self.model[0:3](style1.view(style1.size(0), -1))
+        )
 
 
 ##################################################################################
 # Basic Blocks
 ##################################################################################
 class ResBlock(nn.Module):
-    def __init__(self, dim, norm='in', activation='relu', pad_type='zero'):
+    def __init__(self, dim, norm="in", activation="relu", pad_type="zero"):
         super(ResBlock, self).__init__()
 
         model = []
         model += [ConvBlock(dim, dim, 3, 1, 1, norm=norm, activation=activation, pad_type=pad_type)]
-        model += [ConvBlock(dim, dim, 3, 1, 1, norm=norm, activation='none', pad_type=pad_type)]
+        model += [ConvBlock(dim, dim, 3, 1, 1, norm=norm, activation="none", pad_type=pad_type)]
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
@@ -363,54 +386,55 @@ class ResBlock(nn.Module):
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, kernel_size, stride,
-                 padding=0, norm='none', activation='relu', pad_type='zero'):
+    def __init__(
+        self, input_dim, output_dim, kernel_size, stride, padding=0, norm="none", activation="relu", pad_type="zero"
+    ):
         super(ConvBlock, self).__init__()
         self.use_bias = True
         # initialize padding
-        if pad_type == 'reflect':
+        if pad_type == "reflect":
             self.pad = nn.ReflectionPad2d(padding)
-        elif pad_type == 'replicate':
+        elif pad_type == "replicate":
             self.pad = nn.ReplicationPad2d(padding)
-        elif pad_type == 'zero':
+        elif pad_type == "zero":
             self.pad = nn.ZeroPad2d(padding)
         else:
             assert 0, "Unsupported padding type: {}".format(pad_type)
 
         # initialize normalization
         norm_dim = output_dim
-        if norm == 'bn':
+        if norm == "bn":
             self.norm = nn.BatchNorm2d(norm_dim)
-        elif norm == 'in':
+        elif norm == "in":
             # self.norm = nn.InstanceNorm2d(norm_dim, track_running_stats=True)
             self.norm = nn.InstanceNorm2d(norm_dim)
-        elif norm == 'ln':
+        elif norm == "ln":
             self.norm = LayerNorm(norm_dim)
-        elif norm == 'adain':
+        elif norm == "adain":
             self.norm = AdaptiveInstanceNorm2d(norm_dim)
-        elif norm == 'none' or norm == 'sn':
+        elif norm == "none" or norm == "sn":
             self.norm = None
         else:
             assert 0, "Unsupported normalization: {}".format(norm)
 
         # initialize activation
-        if activation == 'relu':
+        if activation == "relu":
             self.activation = nn.ReLU(inplace=True)
-        elif activation == 'lrelu':
+        elif activation == "lrelu":
             self.activation = nn.LeakyReLU(0.2, inplace=True)
-        elif activation == 'prelu':
+        elif activation == "prelu":
             self.activation = nn.PReLU()
-        elif activation == 'selu':
+        elif activation == "selu":
             self.activation = nn.SELU(inplace=True)
-        elif activation == 'tanh':
+        elif activation == "tanh":
             self.activation = nn.Tanh()
-        elif activation == 'none':
+        elif activation == "none":
             self.activation = None
         else:
             assert 0, "Unsupported activation: {}".format(activation)
 
         # initialize convolution
-        if norm == 'sn':
+        if norm == "sn":
             self.conv = SpectralNorm(nn.Conv2d(input_dim, output_dim, kernel_size, stride, bias=self.use_bias))
         else:
             self.conv = nn.Conv2d(input_dim, output_dim, kernel_size, stride, bias=self.use_bias)
@@ -425,11 +449,11 @@ class ConvBlock(nn.Module):
 
 
 class linearBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, norm='none', activation='relu'):
+    def __init__(self, input_dim, output_dim, norm="none", activation="relu"):
         super(linearBlock, self).__init__()
         use_bias = True
         # initialize fully connected layer
-        if norm == 'sn':
+        if norm == "sn":
             self.fc = SpectralNorm(nn.Linear(input_dim, output_dim, bias=use_bias))
         else:
 
@@ -437,29 +461,29 @@ class linearBlock(nn.Module):
 
         # initialize normalization
         norm_dim = output_dim
-        if norm == 'bn':
+        if norm == "bn":
             self.norm = nn.BatchNorm1d(norm_dim)
-        elif norm == 'in':
+        elif norm == "in":
             self.norm = nn.InstanceNorm1d(norm_dim)
-        elif norm == 'ln':
+        elif norm == "ln":
             self.norm = LayerNorm(norm_dim)
-        elif norm == 'none' or norm == 'sn':
+        elif norm == "none" or norm == "sn":
             self.norm = None
         else:
             assert 0, "Unsupported normalization: {}".format(norm)
 
         # initialize activation
-        if activation == 'relu':
+        if activation == "relu":
             self.activation = nn.ReLU(inplace=True)
-        elif activation == 'lrelu':
+        elif activation == "lrelu":
             self.activation = nn.LeakyReLU(0.2, inplace=True)
-        elif activation == 'prelu':
+        elif activation == "prelu":
             self.activation = nn.PReLU()
-        elif activation == 'selu':
+        elif activation == "selu":
             self.activation = nn.SELU(inplace=True)
-        elif activation == 'tanh':
+        elif activation == "tanh":
             self.activation = nn.Tanh()
-        elif activation == 'none':
+        elif activation == "none":
             self.activation = None
         else:
             assert 0, "Unsupported activation: {}".format(activation)
@@ -487,8 +511,8 @@ class AdaptiveInstanceNorm2d(nn.Module):
         self.weight = None
         self.bias = None
         # just dummy buffers, not used
-        self.register_buffer('running_mean', torch.zeros(num_features))
-        self.register_buffer('running_var', torch.ones(num_features))
+        self.register_buffer("running_mean", torch.zeros(num_features))
+        self.register_buffer("running_var", torch.ones(num_features))
 
     def forward(self, x):
         assert self.weight is not None and self.bias is not None, "Please assign weight and bias before calling AdaIN!"
@@ -499,14 +523,12 @@ class AdaptiveInstanceNorm2d(nn.Module):
         # Apply instance norm
         x_reshaped = x.contiguous().view(1, b * c, *x.size()[2:])
 
-        out = F.batch_norm(
-            x_reshaped, running_mean, running_var, self.weight, self.bias,
-            True, self.momentum, self.eps)
+        out = F.batch_norm(x_reshaped, running_mean, running_var, self.weight, self.bias, True, self.momentum, self.eps)
 
         return out.view(b, c, *x.size()[2:])
 
     def __repr__(self):
-        return self.__class__.__name__ + '(' + str(self.num_features) + ')'
+        return self.__class__.__name__ + "(" + str(self.num_features) + ")"
 
 
 class LayerNorm(nn.Module):
@@ -549,7 +571,7 @@ class SpectralNorm(nn.Module):
     and the Pytorch implementation https://github.com/christiancosgrove/pytorch-spectral-normalization-gan
     """
 
-    def __init__(self, module, name='weight', power_iterations=1):
+    def __init__(self, module, name="weight", power_iterations=1):
         super(SpectralNorm, self).__init__()
         self.module = module
         self.name = name

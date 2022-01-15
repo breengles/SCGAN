@@ -1,24 +1,22 @@
 import os
-import torch
+
 import torch.nn as nn
-import torchvision.models.vgg as models
 
 
 class BaseModel(nn.Module):
-
     def __init__(self):
         super(BaseModel, self).__init__()
 
     def name(self):
-        return 'BaseModel'
+        return "BaseModel"
 
     def initialize(self, opt):
         self.opt = opt
         self.gpu_ids = opt.gpu_ids
-        self.vgg_path = os.path.join('vgg.pth')
-
+        self.vgg_path = os.path.join("vgg.pth")
 
         self.device = "cuda"
+
     def set_input(self, input):
         self.input = input
 
@@ -43,8 +41,3 @@ class BaseModel(nn.Module):
 
     def save(self, label):
         pass
-
-
-
-
-

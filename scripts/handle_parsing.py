@@ -1,9 +1,10 @@
 from PIL import Image
 import numpy as np
-root="MT-Dataset/parsing/makeup/"
-paths=["XMY-387.png"]
+
+root = "MT-Dataset/parsing/makeup/"
+paths = ["XMY-387.png"]
 for path in paths:
-    path=root+path
+    path = root + path
     seg = np.array(Image.open(path))
     new = np.zeros_like(seg)
     new[seg == 0] = 0
