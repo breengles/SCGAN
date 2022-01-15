@@ -1,4 +1,7 @@
-checkpoints/
-vgg_conv.pth
 __pycache__/
 .idea/
+
+checkpoints/
+
+vgg_conv.pth
+vgg.pth
