@@ -13,6 +13,7 @@ class GANLoss(nn.Module):
         self.real_label_var = None
         self.fake_label_var = None
         self.Tensor = tensor
+
         if use_lsgan:
             self.loss = nn.MSELoss()
         else:
@@ -20,6 +21,7 @@ class GANLoss(nn.Module):
 
     def get_target_tensor(self, input, target_is_real):
         target_tensor = None
+
         if target_is_real:
             create_label = (self.real_label_var is None) or (self.real_label_var.numel() != input.numel())
             if create_label:
@@ -32,6 +34,7 @@ class GANLoss(nn.Module):
                 fake_tensor = self.Tensor(input.size()).fill_(self.fake_label)
                 self.fake_label_var = Variable(fake_tensor, requires_grad=False)
             target_tensor = self.fake_label_var
+
         return target_tensor
 
     def forward(self, input, target_is_real):
@@ -51,6 +54,7 @@ class HistogramLoss(nn.Module):
     def to_var(self, x, requires_grad=True):
         if torch.cuda.is_available():
             x = x.cuda()
+
         if not requires_grad:
             return Variable(x, requires_grad=requires_grad)
         else:
@@ -77,6 +81,7 @@ def cal_hist(image):
     """
     cal cumulative hist for channel list
     """
+
     hists = []
     for i in range(0, 3):
         channel = image[i]
@@ -88,9 +93,12 @@ def cal_hist(image):
         # refHist=hist.view(256,1)
         sum = hist.sum()
         pdf = [v / sum for v in hist]
+
         for i in range(1, 256):
             pdf[i] = pdf[i - 1] + pdf[i]
+
         hists.append(pdf)
+
     return hists
 
 
@@ -99,13 +107,17 @@ def cal_trans(ref, adj):
     calculate transfer function
     algorithm refering to wiki item: Histogram matching
     """
+
     table = list(range(0, 256))
+
     for i in list(range(1, 256)):
         for j in list(range(1, 256)):
             if ref[i] >= adj[j - 1] and ref[i] <= adj[j]:
                 table[i] = j
                 break
+
     table[255] = 255
+
     return table
 
 
@@ -116,6 +128,7 @@ def histogram_matching(dstImg, refImg, index):
     index[0], index[1]: the index of pixels that need to be transformed in dstImg
     index[2], index[3]: the index of pixels that to compute histogram in refImg
     """
+
     index = [x.cpu().numpy().squeeze(0) for x in index]
 
     dstImg = dstImg.detach().cpu().numpy()

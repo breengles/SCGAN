@@ -42,7 +42,9 @@ class SCDis(nn.Module):
     def forward(self, x):
         if x.ndim == 5:
             x = x.squeeze(0)
+
         assert x.ndim == 4, x.ndim
+
         h = self.main(x)
 
         out_makeup = self.conv1(h)
@@ -53,7 +55,6 @@ class SCDis(nn.Module):
 class SpectralNorm(object):
     def __init__(self):
         self.name = "weight"
-        # print(self.name)
         self.power_iterations = 1
 
     def compute_weight(self, module):

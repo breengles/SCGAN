@@ -81,8 +81,10 @@ class SCGAN(BaseModel):
 
         self.criterionGAN = GANLoss(use_lsgan=True, tensor=torch.cuda.FloatTensor)
         self.vgg = VGG()
+
         if self.phase == "train":
             self.vgg.load_state_dict(torch.load("vgg_conv.pth"))
+
         self.criterionHis = HistogramLoss()
 
         self.g_optimizer = torch.optim.Adam(self.SCGen.parameters(), self.g_lr, [opt.beta1, opt.beta2])
@@ -92,6 +94,7 @@ class SCGAN(BaseModel):
         self.d_B_optimizer = torch.optim.Adam(
             filter(lambda p: p.requires_grad, self.D_B.parameters()), opt.d_lr, [opt.beta1, opt.beta2]
         )
+
         self.SCGen.cuda()
         self.vgg.cuda()
         self.criterionHis.cuda()
@@ -107,18 +110,18 @@ class SCGAN(BaseModel):
     def load_checkpoint(self):
         G_path = os.path.join(self.snapshot_path, "G.pth")
         if os.path.exists(G_path):
-            dict = torch.load(G_path)
-            self.SCGen.load_state_dict(dict)
-            print("loaded trained generator {}..!".format(G_path))
+            self.SCGen.load_state_dict(torch.load(G_path))
+            print(f"loaded trained generator {G_path}..!")
+
         D_A_path = os.path.join(self.snapshot_path, "D_A.pth")
         if os.path.exists(D_A_path):
             self.D_A.load_state_dict(torch.load(D_A_path))
-            print("loaded trained discriminator A {}..!".format(D_A_path))
+            print(f"loaded trained discriminator A {D_A_path}..!")
 
         D_B_path = os.path.join(self.snapshot_path, "D_B.pth")
         if os.path.exists(D_B_path):
             self.D_B.load_state_dict(torch.load(D_B_path))
-            print("loaded trained discriminator B {}..!".format(D_B_path))
+            print(f"loaded trained discriminator B {D_B_path}..!")
 
     def set_input(self, input):
         self.mask_A = input["mask_A"]
@@ -137,8 +140,10 @@ class SCGAN(BaseModel):
     def to_var(self, x, requires_grad=False):
         if isinstance(x, list):
             return x
+
         if torch.cuda.is_available():
             x = x.cuda()
+
         if not requires_grad:
             return Variable(x, requires_grad=requires_grad)
         else:
@@ -153,15 +158,17 @@ class SCGAN(BaseModel):
 
         for self.e in range(start, self.num_epochs):
             for self.i, data in enumerate(self.dataloader):
-
                 if len(data) == 0:
                     print("No eyes!!")
                     continue
+
                 self.set_input(data)
+
                 makeup, nonmakeup = (
                     self.to_var(self.makeup),
                     self.to_var(self.nonmakeup),
                 )
+
                 makeup_seg, nonmakeup_seg = self.to_var(self.makeup_seg), self.to_var(self.nonmakeup_seg)
                 # makeup_unchanged=self.to_var(self.makeup_unchanged)
                 # nonmakeup_unchanged=self.to_var(self.nonmakeup_unchanged)
@@ -242,6 +249,7 @@ class SCGAN(BaseModel):
                     # histogram loss
                     g_A_loss_his = 0
                     g_B_loss_his = 0
+
                     if self.lips == True:
                         g_A_lip_loss_his = (
                             self.criterionHis(
@@ -267,6 +275,7 @@ class SCGAN(BaseModel):
                         )
                         g_A_loss_his += g_A_lip_loss_his
                         g_B_loss_his += g_B_lip_loss_his
+
                     if self.skin == True:
                         g_A_skin_loss_his = (
                             self.criterionHis(
@@ -292,6 +301,7 @@ class SCGAN(BaseModel):
                         )
                         g_A_loss_his += g_A_skin_loss_his
                         g_B_loss_his += g_B_skin_loss_his
+
                     if self.eye == True:
                         g_A_eye_left_loss_his = (
                             self.criterionHis(
@@ -399,11 +409,12 @@ class SCGAN(BaseModel):
             # Decay learning rate
             if (self.e + 1) % self.snapshot_step == 0:
                 self.save_models()
+
             if (self.e + 1) > (self.num_epochs - self.num_epochs_decay):
                 g_lr -= self.g_lr / float(self.num_epochs_decay)
                 d_lr -= self.d_lr / float(self.num_epochs_decay)
                 self.update_lr(g_lr, d_lr)
-                print("Decay learning rate to g_lr: {}, d_lr:{}.".format(g_lr, d_lr))
+                print(f"Decay learning rate to g_lr: {g_lr}, d_lr:{d_lr}.")
 
     def imgs_save(self, imgs_list):
         if self.phase == "test":
@@ -414,6 +425,7 @@ class SCGAN(BaseModel):
 
             if not osp.exists(self.result_path):
                 os.makedirs(self.result_path)
+
             save_path = os.path.join(
                 self.result_path,
                 "{}{}transferred.jpg".format(
@@ -421,85 +433,105 @@ class SCGAN(BaseModel):
                 ),
             )
             save_image(self.de_norm(imgs_list.data), save_path, normalize=True)
+
         if self.phase == "train":
             img_train_list = torch.cat(imgs_list, dim=3)
             if not osp.exists(self.result_path):
                 os.makedirs(self.result_path)
+
             save_path = os.path.join(self.result_path, "train/" + str(self.e) + "_" + str(self.i) + ".jpg")
             save_image(self.de_norm(img_train_list.data), save_path, normalize=True)
 
     def log_terminal(self):
-        log = " Epoch [{}/{}], Iter [{}/{}]".format(self.e + 1, self.num_epochs, self.i + 1, self.iters_per_epoch)
+        log = f" Epoch [{self.e + 1}/{self.num_epochs}], Iter [{self.i + 1}/{self.iters_per_epoch}]"
 
         for tag, value in self.loss.items():
-            log += ", {}: {:.4f}".format(tag, value)
+            log += f", {tag}: {value:.4f}"
+
         print(log)
 
     def save_models(self):
-
         if not osp.exists(self.snapshot_path):
             os.makedirs(self.snapshot_path)
-        torch.save(
-            self.SCGen.state_dict(), os.path.join(self.snapshot_path, "{}_{}_G.pth".format(self.e + 1, self.i + 1))
-        )
-        torch.save(
-            self.D_A.state_dict(), os.path.join(self.snapshot_path, "{}_{}_D_A.pth".format(self.e + 1, self.i + 1))
-        )
-        torch.save(
-            self.D_B.state_dict(), os.path.join(self.snapshot_path, "{}_{}_D_B.pth".format(self.e + 1, self.i + 1))
-        )
+
+        torch.save(self.SCGen.state_dict(), os.path.join(self.snapshot_path, f"{self.e + 1}_{self.i + 1}_G.pth"))
+        torch.save(self.D_A.state_dict(), os.path.join(self.snapshot_path, f"{self.e + 1}_{self.i + 1}_D_A.pth"))
+        torch.save(self.D_B.state_dict(), os.path.join(self.snapshot_path, f"{self.e + 1}_{self.i + 1}_D_B.pth"))
 
     def test(self):
         self.SCGen.eval()
         self.D_A.eval()
         self.D_B.eval()
+
         makeups = []
         makeups_seg = []
         nonmakeups = []
         nonmakeups_seg = []
+
         for self.i, data in enumerate(self.dataloader):
             if len(data) == 0:
                 print("No eyes!!")
                 continue
+
             self.set_input(data)
-            makeup, nonmakeup = (
-                self.to_var(self.makeup),
-                self.to_var(self.nonmakeup),
-            )
+            makeup, nonmakeup = self.to_var(self.makeup), self.to_var(self.nonmakeup)
             makeup_seg, nonmakeup_seg = self.to_var(self.makeup_seg), self.to_var(self.nonmakeup_seg)
             makeups.append(makeup)
             makeups_seg.append(makeup_seg)
             nonmakeups.append(nonmakeup)
             nonmakeups_seg.append(nonmakeup_seg)
+
         source, ref1, ref2 = nonmakeups[0], makeups[0], makeups[1]
         source_seg, ref1_seg, ref2_seg = nonmakeups_seg[0], makeups_seg[0], makeups_seg[1]
+
         with torch.no_grad():
             transfered = self.SCGen(source, source_seg, ref1, ref1_seg, ref2, ref2_seg)
+
         if not self.ispartial and not self.isinterpolation:
-            results = [[source, ref1], [source, ref2], [ref1, source], [ref2, source]]
+            results = [
+                [source, ref1],
+                [source, ref2],
+                [ref1, source],
+                [ref2, source],
+            ]
+
             for i, img in zip(range(0, len(results)), transfered):
                 results[i].append(img)
+
             self.imgs_save(results)
+
         elif not self.ispartial and self.isinterpolation:
-            results = [[source, ref1], [source, ref2], [ref1, source], [ref2, source], [ref2, ref1]]
+            results = [
+                [source, ref1],
+                [source, ref2],
+                [ref1, source],
+                [ref2, source],
+                [ref2, ref1],
+            ]
+
             for i, imgs in zip(range(0, len(results) - 1), transfered):
                 for img in imgs:
                     results[i].append(img)
+
             for img in transfered[-1]:
                 results[-1].insert(1, img)
             results[-1].reverse()
 
             self.imgs_save(results)
+
         elif self.ispartial and not self.isinterpolation:
             results = [
                 [source, ref1],
                 [source, ref2],
                 [source, ref1, ref2],
             ]
+
             for i, imgs in zip(range(0, len(results)), transfered):
                 for img in imgs:
                     results[i].append(img)
+
             self.imgs_save(results)
+
         elif self.ispartial and self.isinterpolation:
             results = [
                 [source, ref1],
@@ -512,6 +544,7 @@ class SCGAN(BaseModel):
                 [ref2, ref1],
                 [ref2, ref1],
             ]
+
             for i, imgs in zip(range(0, len(results) - 3), transfered):
                 for img in imgs:
                     results[i].append(img)
@@ -519,8 +552,8 @@ class SCGAN(BaseModel):
             for i, imgs in zip(range(len(results) - 3, len(results)), transfered[-3:]):
                 for img in imgs:
                     results[i].insert(1, img)
-
                 results[i].reverse()
+
             self.imgs_save(results)
 
     def de_norm(self, x):

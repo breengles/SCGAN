@@ -16,6 +16,7 @@ def ToTensor(pic):
         img = torch.from_numpy(np.array(pic, np.int16, copy=False))
     else:
         img = torch.ByteTensor(torch.ByteStorage.from_buffer(pic.tobytes()))
+
     # PIL image mode: 1, L, P, I, F, RGB, YCbCr, RGBA, CMYK
     if pic.mode == "YCbCr":
         nchannel = 3
@@ -24,9 +25,11 @@ def ToTensor(pic):
     else:
         nchannel = len(pic.mode)
     img = img.view(pic.size[1], pic.size[0], nchannel)
+
     # put it from HWC to CHW format
     # yikes, this transpose takes 80% of the loading time/CPU
     img = img.transpose(0, 1).transpose(0, 2).contiguous()
+
     if isinstance(img, torch.ByteTensor):
         return img.float()
     else:
@@ -45,6 +48,7 @@ class SCDataset:
         self.n_componets = opt.n_componets
         self.makeup_names = []
         self.non_makeup_names = []
+
         if self.phase == "train":
             self.makeup_names = [
                 name.strip() for name in open(os.path.join("MT-Dataset", "makeup.txt"), "rt").readlines()
@@ -52,12 +56,14 @@ class SCDataset:
             self.non_makeup_names = [
                 name.strip() for name in open(os.path.join("MT-Dataset", "non-makeup.txt"), "rt").readlines()
             ]
+
         if self.phase == "test":
             with open("test.txt", "r") as f:
                 for line in f.readlines():
                     non_makeup_name, make_upname = line.strip().split()
                     self.non_makeup_names.append(non_makeup_name)
                     self.makeup_names.append(make_upname)
+
         self.transform = transforms.Compose(
             [
                 transforms.Resize((opt.img_size, opt.img_size)),
@@ -65,6 +71,7 @@ class SCDataset:
                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
             ]
         )
+
         self.transform_mask = transforms.Compose(
             [transforms.Resize((opt.img_size, opt.img_size), interpolation=PIL.Image.NEAREST), ToTensor]
         )
@@ -73,10 +80,12 @@ class SCDataset:
         if self.phase == "test":
             makeup_name = self.makeup_names[index]
             nonmakeup_name = self.non_makeup_names[index]
+
         if self.phase == "train":
             index = self.pick()
             makeup_name = self.makeup_names[index[0]]
             nonmakeup_name = self.non_makeup_names[index[1]]
+
         # self.f.write(nonmakeup_name+' '+makeup_name+'\n')
         # self.f.flush()
         nonmakeup_path = os.path.join(self.dir_nonmakeup, nonmakeup_name)
@@ -240,6 +249,7 @@ class SCDataset:
     def to_var(self, x, requires_grad=True):
         if torch.cuda.is_available():
             x = x.cuda()
+
         if not requires_grad:
             return Variable(x, requires_grad=requires_grad)
         else:
