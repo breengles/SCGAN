@@ -5,3 +5,5 @@ checkpoints/
 
 vgg_conv.pth
 vgg.pth
+
+results/
