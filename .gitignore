@@ -1,6 +1,8 @@
 __pycache__/
 .idea/
 
+.python-version
+
 checkpoints/
 
 vgg_conv.pth
