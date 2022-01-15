@@ -4,7 +4,7 @@ from .base_options import BaseOptions
 class TestOptions(BaseOptions):
     def initialize(self):
         BaseOptions.initialize(self)
-        self.parser.add_argument("--phase", type=str, default="train", help="train,test")
+        self.parser.add_argument("--phase", type=str, default="train", help="train, test")
         self.parser.add_argument("--beta1", type=float, default=0.5, help="momentum term of adam")
         self.parser.add_argument("--beta2", type=float, default=0.999, help="momentum term of adam")
         self.parser.add_argument("--g_lr", type=float, default=2e-4, help="initial learning rate for adam")
