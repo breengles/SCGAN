@@ -29,7 +29,7 @@ class BaseOptions:
             action="store_false",
             help="if true, takes images in order to make batches, otherwise takes them randomly",
         )
-        self.parser.add_argument("--n_componets", type=int, default=3, help="# of componets")
+        self.parser.add_argument("--n_components", type=int, default=3, help="# of componets")
         self.parser.add_argument("--n_res", type=int, default=3, help="# of resblocks")
         self.parser.add_argument("--padding_type", type=str, default="reflect")
         self.parser.add_argument("--use_flip", type=int, default=0, help="flip or not")

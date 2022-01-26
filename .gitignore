@@ -9,3 +9,8 @@ vgg_conv.pth
 vgg.pth
 
 results/
+
+faceparsing/
+res/
+
+test_dataset/

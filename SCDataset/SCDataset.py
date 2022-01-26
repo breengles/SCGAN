@@ -45,7 +45,7 @@ class SCDataset:
         self.dir_makeup = opt.dataroot
         self.dir_nonmakeup = opt.dataroot
         self.dir_seg = opt.dirmap  # parsing maps
-        self.n_componets = opt.n_componets
+        self.n_components = opt.n_components
         self.makeup_names = []
         self.non_makeup_names = []
 
@@ -107,8 +107,8 @@ class SCDataset:
         nonmakeup_img = self.transform(nonmakeup_img)
         mask_B = self.transform_mask(makeup_seg_img)  # makeup
         mask_A = self.transform_mask(nonmakeup_seg_img)  # nonmakeup
-        makeup_seg = torch.zeros([self.n_componets, 256, 256], dtype=torch.float)
-        nonmakeup_seg = torch.zeros([self.n_componets, 256, 256], dtype=torch.float)
+        makeup_seg = torch.zeros([self.n_components, 256, 256], dtype=torch.float)
+        nonmakeup_seg = torch.zeros([self.n_components, 256, 256], dtype=torch.float)
         makeup_unchanged = (
             (mask_B == 7).float()
             + (mask_B == 2).float()

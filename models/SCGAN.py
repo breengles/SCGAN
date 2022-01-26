@@ -63,7 +63,7 @@ class SCGAN(BaseModel):
             opt.n_downsampling,
             opt.n_res,
             opt.mlp_dim,
-            opt.n_componets,
+            opt.n_components,
             opt.input_nc,
             opt.phase,
             ispartial=opt.partial,
