@@ -604,6 +604,6 @@ class SCGAN(BaseModel):
         source = self.de_norm(source).squeeze().cpu().numpy().transpose(1, 2, 0)
         ref = self.de_norm(ref).squeeze().cpu().numpy().transpose(1, 2, 0)
         transfer = self.de_norm(transfered[0]).squeeze().cpu().numpy().transpose(1, 2, 0)
-        removal = self.de_norm(transfered[1]).squeeze().cpu().numpy().transpose(1, 2, 0)
+        removal = self.de_norm(transfered[2]).squeeze().cpu().numpy().transpose(1, 2, 0)
 
         return source, ref, transfer, removal
