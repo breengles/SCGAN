@@ -1,11 +1,11 @@
-import os.path
-
 import numpy as np
 import PIL
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from torch.autograd import Variable
+from torch.utils.data import DataLoader
+from torchvision.transforms import InterpolationMode
 
 
 def ToTensor(pic):
@@ -36,33 +36,17 @@ def ToTensor(pic):
         return img
 
 
-class SCDataset:
-    def __init__(self, opt):
+class TransferDataset:
+    def __init__(self, source_path, reference_path, source_seg_path, reference_seg_path, opt):
         self.random = None
-        self.phase = opt.phase
         self.opt = opt
-        self.root = opt.dataroot
-        self.dir_makeup = opt.dataroot
-        self.dir_nonmakeup = opt.dataroot
-        self.dir_seg = opt.dirmap  # parsing maps
         self.n_components = opt.n_components
-        self.makeup_names = []
-        self.non_makeup_names = []
 
-        if self.phase == "train":
-            self.makeup_names = [
-                name.strip() for name in open(os.path.join("MT-Dataset", "makeup.txt"), "rt").readlines()
-            ]
-            self.non_makeup_names = [
-                name.strip() for name in open(os.path.join("MT-Dataset", "non-makeup.txt"), "rt").readlines()
-            ]
+        self.source_path = source_path
+        self.reference_path = reference_path
 
-        if self.phase == "test":
-            with open("test.txt", "r") as f:
-                for line in f.readlines():
-                    non_makeup_name, make_upname = line.strip().split()
-                    self.non_makeup_names.append(non_makeup_name)
-                    self.makeup_names.append(make_upname)
+        self.source_seg_path = source_seg_path
+        self.reference_seg_path = reference_seg_path
 
         self.transform = transforms.Compose(
             [
@@ -73,40 +57,19 @@ class SCDataset:
         )
 
         self.transform_mask = transforms.Compose(
-            [transforms.Resize((opt.img_size, opt.img_size), interpolation=PIL.Image.NEAREST), ToTensor]
+            [transforms.Resize((opt.img_size, opt.img_size), interpolation=InterpolationMode.NEAREST), ToTensor]
         )
 
     def __getitem__(self, index):
-        if self.phase == "test":
-            makeup_name = self.makeup_names[index]
-            nonmakeup_name = self.non_makeup_names[index]
+        source_img = self.transform(Image.open(self.source_path).convert("RGB"))
+        reference_img = self.transform(Image.open(self.reference_path).convert("RGB"))
 
-        if self.phase == "train":
-            index = self.pick()
-            makeup_name = self.makeup_names[index[0]]
-            nonmakeup_name = self.non_makeup_names[index[1]]
+        source_seg_img = Image.open(self.source_seg_path)
+        reference_seg_img = Image.open(self.reference_seg_path)
 
-        # self.f.write(nonmakeup_name+' '+makeup_name+'\n')
-        # self.f.flush()
-        nonmakeup_path = os.path.join(self.dir_nonmakeup, nonmakeup_name)
+        mask_A = self.transform_mask(source_seg_img)  # source
+        mask_B = self.transform_mask(reference_seg_img)  # reference
 
-        makeup_path = os.path.join(self.dir_makeup, makeup_name)
-
-        makeup_img = Image.open(makeup_path).convert("RGB")
-        nonmakeup_img = Image.open(nonmakeup_path).convert("RGB")
-
-        makeup_seg_img = Image.open(os.path.join(self.dir_seg, makeup_name))
-        nonmakeup_seg_img = Image.open(os.path.join(self.dir_seg, nonmakeup_name))
-        # makeup_img = makeup_img.transpose(Image.FLIP_LEFT_RIGHT)
-        # makeup_seg_img = makeup_seg_img.transpose(Image.FLIP_LEFT_RIGHT)
-        # nonmakeup_img=nonmakeup_img.rotate(40)
-        # nonmakeup_seg_img=nonmakeup_seg_img.rotate(40)
-        # makeup_img=makeup_img.rotate(90)
-        # makeup_seg_img=makeup_seg_img.rotate(90)
-        makeup_img = self.transform(makeup_img)
-        nonmakeup_img = self.transform(nonmakeup_img)
-        mask_B = self.transform_mask(makeup_seg_img)  # makeup
-        mask_A = self.transform_mask(nonmakeup_seg_img)  # nonmakeup
         makeup_seg = torch.zeros([self.n_components, 256, 256], dtype=torch.float)
         nonmakeup_seg = torch.zeros([self.n_components, 256, 256], dtype=torch.float)
         makeup_unchanged = (
@@ -175,29 +138,19 @@ class SCDataset:
         return {
             "nonmakeup_seg": nonmakeup_seg,
             "makeup_seg": makeup_seg,
-            "nonmakeup_img": nonmakeup_img,
-            "makeup_img": makeup_img,
+            "nonmakeup_img": source_img,
+            "makeup_img": reference_img,
             "mask_A": mask_A,
             "mask_B": mask_B,
             "makeup_unchanged": makeup_unchanged,
             "nonmakeup_unchanged": nonmakeup_unchanged,
         }
 
-    def pick(self):
-        if self.random is None:
-            self.random = np.random.RandomState(np.random.seed())
-        a_index = self.random.randint(0, len(self.makeup_names))
-        another_index = self.random.randint(0, len(self.non_makeup_names))
-        return [a_index, another_index]
-
     def __len__(self):
-        if self.opt.phase == "train":
-            return len(self.non_makeup_names)
-        elif self.opt.phase == "test":
-            return len(self.makeup_names)
+        return 1
 
     def name(self):
-        return "SCDataset"
+        return "TransferDataset"
 
     def rebound_box(self, mask_A, mask_B, mask_A_face):
         mask_A = mask_A.unsqueeze(0)
@@ -218,8 +171,6 @@ class SCDataset:
         mask_B_temp[
             :, :, min(x_B_index) - 5 : max(x_B_index) + 6, min(y_B_index) - 5 : max(y_B_index) + 6
         ] = mask_A_face[:, :, min(x_B_index) - 5 : max(x_B_index) + 6, min(y_B_index) - 5 : max(y_B_index) + 6]
-        # mask_A_temp = self.to_var(mask_A_temp, requires_grad=False)
-        # mask_B_temp = self.to_var(mask_B_temp, requires_grad=False)
         mask_A_temp = mask_A_temp.squeeze(0)
         mask_A = mask_A.squeeze(0)
         mask_B = mask_B.squeeze(0)
@@ -238,8 +189,6 @@ class SCDataset:
         index_tmp = torch.nonzero(mask_B, as_tuple=False)
         x_B_index = index_tmp[:, 2]
         y_B_index = index_tmp[:, 3]
-        # mask_A = self.to_var(mask_A, requires_grad=False)
-        # mask_B = self.to_var(mask_B, requires_grad=False)
         index = [x_A_index, y_A_index, x_B_index, y_B_index]
         index_2 = [x_B_index, y_B_index, x_A_index, y_A_index]
         mask_A = mask_A.squeeze(0)
@@ -256,16 +205,15 @@ class SCDataset:
             return Variable(x)
 
 
-class SCDataLoader:
-    def __init__(self, opt):
-        self.dataset = SCDataset(opt)
-        # print("Dataset loaded")
-        self.dataloader = torch.utils.data.DataLoader(
+class TransferDataLoader:
+    def __init__(self, source_path, reference_path, source_seg_path, reference_seg_path, opt):
+        self.dataset = TransferDataset(source_path, reference_path, source_seg_path, reference_seg_path, opt)
+        self.dataloader = DataLoader(
             self.dataset, batch_size=opt.batchSize, shuffle=not opt.serial_batches, num_workers=int(opt.nThreads)
         )
 
     def name(self):
-        return "SCDataLoader"
+        return "TransferDataLoader"
 
     def __len__(self):
         return len(self.dataset)

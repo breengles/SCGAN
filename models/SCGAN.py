@@ -1,9 +1,11 @@
 import os
 import os.path as osp
-
+from copy import deepcopy
 import torch
 from torch.autograd import Variable
 from torchvision.utils import save_image
+from SCDataset.SCDataset import SCDataLoader
+from SCDataset.transfer_dataset import TransferDataLoader
 
 from models.SCGen import SCGen
 
@@ -104,8 +106,8 @@ class SCGAN(BaseModel):
         self.D_A.cuda()
         self.D_B.cuda()
 
-        print("---------- Networks initialized -------------")
-        net_utils.print_network(self.SCGen)
+        # print("---------- Networks initialized -------------")
+        # net_utils.print_network(self.SCGen)
 
     def load_checkpoint(self):
         G_path = os.path.join(self.snapshot_path, "G.pth")
@@ -126,14 +128,10 @@ class SCGAN(BaseModel):
     def set_input(self, input):
         self.mask_A = input["mask_A"]
         self.mask_B = input["mask_B"]
-        makeup = input["makeup_img"]
-        nonmakeup = input["nonmakeup_img"]
-        makeup_seg = input["makeup_seg"]
-        nonmakeup_seg = input["nonmakeup_seg"]
-        self.makeup = makeup
-        self.nonmakeup = nonmakeup
-        self.makeup_seg = makeup_seg
-        self.nonmakeup_seg = nonmakeup_seg
+        self.makeup = input["makeup_img"]
+        self.nonmakeup = input["nonmakeup_img"]
+        self.makeup_seg = input["makeup_seg"]
+        self.nonmakeup_seg = input["nonmakeup_seg"]
         self.makeup_unchanged = input["makeup_unchanged"]
         self.nonmakeup_unchanged = input["nonmakeup_unchanged"]
 
@@ -559,3 +557,53 @@ class SCGAN(BaseModel):
     def de_norm(self, x):
         out = (x + 1) / 2
         return out.clamp(0, 1)
+
+    @torch.no_grad()
+    def transfer(self, source_path, reference_path, source_seg_path, reference_seg_path):
+        self.SCGen.eval()
+        self.D_A.eval()
+        self.D_B.eval()
+
+        dataloader = TransferDataLoader(source_path, reference_path, source_seg_path, reference_seg_path, self.opt)
+
+        makeups = []
+        makeups_seg = []
+        nonmakeups = []
+        nonmakeups_seg = []
+
+        for self.i, data in enumerate(dataloader):
+            if len(data) == 0:
+                print("No eyes!!")
+                continue
+
+            self.set_input(data)
+            makeup, nonmakeup = self.to_var(self.makeup), self.to_var(self.nonmakeup)
+            makeup_seg, nonmakeup_seg = self.to_var(self.makeup_seg), self.to_var(self.nonmakeup_seg)
+
+            makeups.append(makeup)
+            makeups_seg.append(makeup_seg)
+            nonmakeups.append(nonmakeup)
+            nonmakeups_seg.append(nonmakeup_seg)
+
+        source, ref = nonmakeups[0], makeups[0]
+        source_seg, ref_seg = nonmakeups_seg[0], makeups_seg[0]
+
+        transfered = self.SCGen(source, source_seg, ref, ref_seg, ref, ref_seg)
+
+        if not self.ispartial and not self.isinterpolation:
+            results = [
+                [source, ref],
+                [ref, source],
+            ]
+
+            for i, img in zip(range(0, len(results)), transfered):
+                results[i].append(img)
+
+            self.imgs_save(results)
+
+        source = self.de_norm(source).squeeze().cpu().numpy().transpose(1, 2, 0)
+        ref = self.de_norm(ref).squeeze().cpu().numpy().transpose(1, 2, 0)
+        transfer = self.de_norm(transfered[0]).squeeze().cpu().numpy().transpose(1, 2, 0)
+        removal = self.de_norm(transfered[1]).squeeze().cpu().numpy().transpose(1, 2, 0)
+
+        return source, ref, transfer, removal
