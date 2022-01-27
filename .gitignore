@@ -14,3 +14,5 @@ faceparsing/
 res/
 
 test_dataset/
+dataset/
+results/
