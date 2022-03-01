@@ -456,6 +456,7 @@ class SCGAN(BaseModel):
         torch.save(self.D_A.state_dict(), os.path.join(self.snapshot_path, f"{self.e + 1}_{self.i + 1}_D_A.pth"))
         torch.save(self.D_B.state_dict(), os.path.join(self.snapshot_path, f"{self.e + 1}_{self.i + 1}_D_B.pth"))
 
+    @torch.no_grad()
     def test(self):
         self.SCGen.eval()
         self.D_A.eval()
@@ -482,8 +483,7 @@ class SCGAN(BaseModel):
         source, ref1, ref2 = nonmakeups[0], makeups[0], makeups[1]
         source_seg, ref1_seg, ref2_seg = nonmakeups_seg[0], makeups_seg[0], makeups_seg[1]
 
-        with torch.no_grad():
-            transfered = self.SCGen(source, source_seg, ref1, ref1_seg, ref2, ref2_seg)
+        transfered = self.SCGen(source, source_seg, ref1, ref1_seg, ref2, ref2_seg)
 
         if not self.ispartial and not self.isinterpolation:
             results = [

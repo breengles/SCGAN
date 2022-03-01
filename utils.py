@@ -1,5 +1,5 @@
 import os
-from tkinter import Variable
+from sys import displayhook
 
 import cv2
 import numpy as np
@@ -132,6 +132,60 @@ def handle_parsing(seg):
     return new
 
 
+def vis_parsing_maps(im, parsing_anno, stride, save_im=False, save_path="vis_results/parsing_map_on_im.jpg"):
+    # Colors for all 20 parts
+    part_colors = [
+        [255, 0, 0],
+        [255, 85, 0],
+        [255, 170, 0],
+        [255, 0, 85],
+        [255, 0, 170],
+        [0, 255, 0],
+        [85, 255, 0],
+        [170, 255, 0],
+        [0, 255, 85],
+        [0, 255, 170],
+        [0, 0, 255],
+        [85, 0, 255],
+        [170, 0, 255],
+        [0, 85, 255],
+        [0, 170, 255],
+        [255, 255, 0],
+        [255, 255, 85],
+        [255, 255, 170],
+        [255, 0, 255],
+        [255, 85, 255],
+        [255, 170, 255],
+        [0, 255, 255],
+        [85, 255, 255],
+        [170, 255, 255],
+    ]
+
+    im = np.array(im)
+    vis_im = im.copy().astype(np.uint8)
+    vis_parsing_anno = parsing_anno.copy().astype(np.uint8)
+    vis_parsing_anno = cv2.resize(vis_parsing_anno, None, fx=stride, fy=stride, interpolation=cv2.INTER_NEAREST)
+    vis_parsing_anno_color = np.zeros((vis_parsing_anno.shape[0], vis_parsing_anno.shape[1], 3)) + 255
+
+    num_of_class = np.max(vis_parsing_anno)
+
+    for pi in range(1, num_of_class + 1):
+        index = np.where(vis_parsing_anno == pi)
+        vis_parsing_anno_color[index[0], index[1], :] = part_colors[pi]
+
+    vis_parsing_anno_color = vis_parsing_anno_color.astype(np.uint8)
+    # print(vis_parsing_anno_color.shape, vis_im.shape)
+    vis_im = cv2.addWeighted(cv2.cvtColor(vis_im, cv2.COLOR_RGB2BGR), 0.4, vis_parsing_anno_color, 0.6, 0)
+
+    # Save result or not
+    if save_im:
+        cv2.imwrite(save_path[:-4] + ".png", vis_parsing_anno)
+        cv2.imwrite(save_path, vis_im, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+
+    # return vis_im
+    return vis_im
+
+
 def dilate(img, kernel, iterations=1, part=1):
     tmp = np.zeros_like(img)
 
@@ -149,6 +203,7 @@ def get_boundary_points(img):
     cnt, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     cnt_max = 0
+    cnt_ = None
     for c in cnt:
         if c.shape[0] > cnt_max:
             cnt_max = c.shape[0]
@@ -217,7 +272,22 @@ def fill_between_eye_eyebrow(source_mask, part=1):
     return new_source_mask
 
 
-def parsing(source_path, reference_path, checkpoint="79999_iter.pth", to_dilate=False, to_fill=False, save=True):
+def cut_eye_out(seg, init_seg, part=1):
+    init_part = init_seg == part
+    seg[init_part] = 0
+    return seg
+
+
+def parsing(
+    source_path,
+    reference_path,
+    checkpoint="79999_iter.pth",
+    to_dilate=False,
+    to_fill=False,
+    kernel=np.ones((5, 5)),
+    iterations=1,
+    save=True,
+):
     source_name = os.path.basename(source_path)
     reference_name = os.path.basename(reference_path)
 
@@ -230,22 +300,32 @@ def parsing(source_path, reference_path, checkpoint="79999_iter.pth", to_dilate=
     os.makedirs(source_seg_dir, exist_ok=True)
     os.makedirs(reference_seg_dir, exist_ok=True)
 
-    source_seg = evaluate_image(source_path, cp=checkpoint)
-    reference_seg = evaluate_image(reference_path, cp=checkpoint)
-
     new_source_seg_path = f"{source_seg_dir}/{source_name}"
     new_reference_seg_path = f"{reference_seg_dir}/{reference_name}"
-    new_source_seg = handle_parsing(source_seg[1].astype(np.uint8))
-    new_reference_seg = handle_parsing(reference_seg[1].astype(np.uint8))
+
+    _, src_img, src_seg = evaluate_image(source_path, cp=checkpoint)
+    _, ref_img, ref_seg = evaluate_image(reference_path, cp=checkpoint)
+
+    new_source_seg = handle_parsing(src_seg)
+    new_reference_seg = handle_parsing(ref_seg)
+
+    new_source_seg_ = new_source_seg.copy()
+    new_ref_seg_ = new_reference_seg.copy()
 
     for p in (1, 6):
         if to_dilate:
-            new_source_seg = dilate(new_source_seg, np.ones((5, 5)), iterations=3, part=p)
-            new_reference_seg = dilate(new_reference_seg, np.ones((5, 5)), iterations=3, part=p)
+            new_source_seg = dilate(new_source_seg, kernel, iterations=iterations, part=p)
+            new_reference_seg = dilate(new_reference_seg, kernel, iterations=iterations, part=p)
 
         if to_fill:
             new_source_seg = fill_between_eye_eyebrow(new_source_seg, part=p)
             new_reference_seg = fill_between_eye_eyebrow(new_reference_seg, part=p)
+
+        new_source_seg = cut_eye_out(new_source_seg, new_source_seg_, p)
+        new_reference_seg = cut_eye_out(new_reference_seg, new_ref_seg_, p)
+
+    vis_parsing_src = vis_parsing_maps(src_img, new_source_seg, stride=1, save_im=False)
+    vis_parsing_ref = vis_parsing_maps(ref_img, new_reference_seg, stride=1, save_im=False)
 
     new_source_seg = Image.fromarray(new_source_seg)
     new_reference_seg = Image.fromarray(new_reference_seg)
@@ -254,50 +334,52 @@ def parsing(source_path, reference_path, checkpoint="79999_iter.pth", to_dilate=
         new_source_seg.save(new_source_seg_path)
         new_reference_seg.save(new_reference_seg_path)
 
-    return (new_source_seg_path, new_source_seg), (new_reference_seg_path, new_reference_seg)
+    return (
+        (new_source_seg_path, new_source_seg, vis_parsing_src),
+        (new_reference_seg_path, new_reference_seg, vis_parsing_ref),
+    )
 
 
-def transfer(source_path, reference_path, opt, checkpoint="79999_iter.pth", save=True):
-    source_seg, reference_seg = parsing(source_path, reference_path, checkpoint=checkpoint, save=save)
+def transfer(
+    source_path,
+    reference_path,
+    opt,
+    to_dilate=False,
+    to_fill=False,
+    kernel=np.ones((5, 5)),
+    iterations=1,
+    checkpoint="79999_iter.pth",
+    save=True,
+):
+    source_seg, reference_seg = parsing(
+        source_path,
+        reference_path,
+        checkpoint=checkpoint,
+        to_dilate=to_dilate,
+        to_fill=to_fill,
+        kernel=kernel,
+        iterations=iterations,
+        save=save,
+    )
 
-    # dataloader = SCDataLoader(opt)
     SCGan = create_model(opt, None)
-    # SCGan.test()
     results = SCGan.transfer(source_path, reference_path, source_seg[0], reference_seg[0])
 
-    fig, ax = plt.subplots(1, 3, figsize=(24, 36))
+    fig, ax = plt.subplots(2, 3, figsize=(18, 12))
 
-    ax[0].imshow(results[0])
-    ax[0].set_title("Source")
-    ax[1].imshow(results[1])
-    ax[1].set_title("Reference")
-    ax[2].imshow(results[2])
-    ax[2].set_title("Transfer")
+    ax[0][0].imshow(results[0])
+    ax[0][0].set_title("Source")
+    ax[0][1].imshow(results[1])
+    ax[0][1].set_title("Reference")
+    ax[0][2].imshow(results[2])
+    ax[0][2].set_title("Transfer")
 
-    for a in ax:
-        a.axis("off")
+    ax[1][0].imshow(source_seg[2])
+    ax[1][1].imshow(reference_seg[2])
 
-    # fig, ax = plt.subplots(2, 3, figsize=(24, 36))
-
-    # ax[0][0].imshow(results[0])
-    # ax[0][0].set_title("Source")
-    # ax[0][1].imshow(results[1])
-    # ax[0][1].set_title("Reference")
-    # ax[0][2].imshow(results[2])
-    # ax[0][2].set_title("Transfer")
-
-    # ax[1][0].imshow(results[1])
-    # ax[1][0].set_title("Source")
-    # ax[1][1].imshow(results[0])
-    # ax[1][1].set_title("Reference")
-    # ax[1][2].imshow(results[3])
-    # ax[1][2].set_title("Removal")
-
-    # for a in ax[0]:
-    #     a.axis("off")
-
-    # for a in ax[1]:
-    #     a.axis("off")
+    for row in ax:
+        for cell in row:
+            cell.axis("off")
 
     plt.show()
 
@@ -305,14 +387,19 @@ def transfer(source_path, reference_path, opt, checkpoint="79999_iter.pth", save
 
 
 if __name__ == "__main__":
-    source_seg, reference_seg = parsing(
-        "dataset/non-makeup/00313.jpg", "dataset/makeup/b7fd5266d01609248414333cdf0735fae6cd34e7.png", save=False
+    opt = Options(
+        phase="test", img_size=256, dataroot="dataset2/images", dirmap="dataset2/parsing", save_path="results/"
     )
 
-    source_mask = np.array(source_seg[1]).astype(np.uint8)
+    src_path = "dataset/non-makeup/xfsy_0444.png"
+    ref_path = "dataset/makeup/XMY-078.png"
 
-    plt.imshow(source_mask)
-    plt.show()
+    results = transfer(source_path=src_path, reference_path=ref_path, opt=opt)
+
+    # source_seg, reference_seg = parsing(src_path, ref_path, to_dilate=True, to_fill=True, save=True,)
+    # source_mask = np.array(source_seg[1]).astype(np.uint8)
+    # plt.imshow(source_mask)
+    # plt.show()
 
     # eye = np.zeros_like(source_mask)
     # brow = np.zeros_like(source_mask)

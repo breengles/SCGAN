@@ -62,6 +62,9 @@ class SCGen(nn.Module):
             if not self.ispartial and not self.isinterpolation:
                 results = []
                 codes = self.PSEnc(y1, map_y1, y2, map_y2, x, map_x)
+
+                # print(codes[0].shape)
+
                 fids = [fid_x, fid_x, fid_y1, fid_y2]
                 codes.append(codes[-1])  # for demakeup
                 length = len(fids)
