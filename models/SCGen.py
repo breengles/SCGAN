@@ -192,9 +192,9 @@ class PartStyleEncoder(nn.Module):
         self.phase = phase
         self.isinterpolation = isinterpolation
         self.ispartial = ispartial
-        vgg19 = models.vgg19(pretrained=False)
-        vgg19.load_state_dict(torch.load("./vgg.pth"))
-        self.vgg = vgg19.features
+        self.vgg = None
+
+        self.load_vgg()
 
         for param in self.vgg.parameters():
             param.requires_grad_(False)
@@ -213,6 +213,11 @@ class PartStyleEncoder(nn.Module):
         self.model += [nn.Conv2d(dim, style_dim, 1, 1, 0)]
         self.model = nn.Sequential(*self.model)
         self.output_dim = dim
+
+    def load_vgg(self, path="./vgg.pth"):
+        vgg19 = models.vgg19(pretrained=False)
+        vgg19.load_state_dict(torch.load(path))
+        self.vgg = vgg19.features
 
     def get_features(self, image, model, layers=None):
         if layers is None:

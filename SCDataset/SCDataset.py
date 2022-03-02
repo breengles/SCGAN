@@ -107,8 +107,8 @@ class SCDataset:
         nonmakeup_img = self.transform(nonmakeup_img)
         mask_B = self.transform_mask(makeup_seg_img)  # makeup
         mask_A = self.transform_mask(nonmakeup_seg_img)  # nonmakeup
-        makeup_seg = torch.zeros([self.n_components, 256, 256], dtype=torch.float)
-        nonmakeup_seg = torch.zeros([self.n_components, 256, 256], dtype=torch.float)
+        makeup_seg = torch.zeros([self.n_components, self.opt.img_size, self.opt.img_size], dtype=torch.float)
+        nonmakeup_seg = torch.zeros([self.n_components, self.opt.img_size, self.opt.img_size], dtype=torch.float)
         makeup_unchanged = (
             (mask_B == 7).float()
             + (mask_B == 2).float()
@@ -126,6 +126,7 @@ class SCDataset:
         mask_A_lip = (mask_A == 9).float() + (mask_A == 13).float()
         mask_B_lip = (mask_B == 9).float() + (mask_B == 13).float()
         mask_A_lip, mask_B_lip, index_A_lip, index_B_lip = self.mask_preprocess(mask_A_lip, mask_B_lip)
+
         makeup_seg[0] = mask_B_lip
         nonmakeup_seg[0] = mask_A_lip
         mask_A_skin = (mask_A == 4).float() + (mask_A == 8).float() + (mask_A == 10).float()
@@ -143,7 +144,7 @@ class SCDataset:
         if not ((mask_B_eye_left > 0).any() and (mask_B_eye_right > 0).any()):
             return {}
         # mask_A_eye_left, mask_A_eye_right = self.rebound_box(mask_A_eye_left, mask_A_eye_right, mask_A_face)
-        mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
+        # mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
         mask_A_eye_left, mask_B_eye_left, index_A_eye_left, index_B_eye_left = self.mask_preprocess(
             mask_A_eye_left, mask_B_eye_left
         )

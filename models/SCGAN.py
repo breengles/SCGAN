@@ -77,6 +77,9 @@ class SCGAN(BaseModel):
         self.D_A.apply(net_utils.weights_init_xavier)
         self.D_B.apply(net_utils.weights_init_xavier)
         self.SCGen.apply(net_utils.weights_init_xavier)
+
+        self.SCGen.PSEnc.load_vgg()
+
         self.load_checkpoint()
         self.criterionL1 = torch.nn.L1Loss()
         self.criterionL2 = torch.nn.MSELoss()
@@ -356,15 +359,15 @@ class SCGAN(BaseModel):
                     g_loss_rec_B = self.criterionL1(rec_B, makeup) * self.lambda_B
 
                     # vgg loss
-                    vgg_s = self.vgg(makeup, self.layers)[0]
+                    vgg_s = self.vgg(nonmakeup, self.layers)[0]
                     vgg_s = Variable(vgg_s.data).detach()
-                    vgg_fake_makeup = self.vgg(fake_makeup, self.layers)[0]
-                    g_loss_A_vgg = self.criterionL2(vgg_fake_makeup, vgg_s) * self.lambda_A * self.lambda_vgg
-
-                    vgg_r = self.vgg(nonmakeup, self.layers)[0]
-                    vgg_r = Variable(vgg_r.data).detach()
                     vgg_fake_nonmakeup = self.vgg(fake_nonmakeup, self.layers)[0]
-                    g_loss_B_vgg = self.criterionL2(vgg_fake_nonmakeup, vgg_r) * self.lambda_B * self.lambda_vgg
+                    g_loss_A_vgg = self.criterionL2(vgg_fake_nonmakeup, vgg_s) * self.lambda_A * self.lambda_vgg
+
+                    vgg_r = self.vgg(makeup, self.layers)[0]
+                    vgg_r = Variable(vgg_r.data).detach()
+                    vgg_fake_makeup = self.vgg(fake_makeup, self.layers)[0]
+                    g_loss_B_vgg = self.criterionL2(vgg_fake_makeup, vgg_r) * self.lambda_B * self.lambda_vgg
                     # local-per
                     # vgg_fake_makeup_unchanged=self.vgg(fake_makeup*nonmakeup_unchanged,self.layers)
                     # vgg_makeup_masked=self.vgg(makeup*makeup_unchanged,self.layers)
