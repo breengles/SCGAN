@@ -4,6 +4,7 @@ __pycache__/
 .python-version
 
 checkpoints/
+G.original.pth
 
 vgg_conv.pth
 vgg.pth
@@ -16,3 +17,5 @@ res/
 test_dataset/
 dataset/
 results/
+
+MT-Dataset*
