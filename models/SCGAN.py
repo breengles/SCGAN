@@ -1,11 +1,12 @@
 import os
 import os.path as osp
-from copy import deepcopy
+from datetime import datetime
+
 import torch
-from torch.autograd import Variable
-from torchvision.utils import save_image
 from SCDataset.SCDataset import SCDataLoader
 from SCDataset.transfer_dataset import TransferDataLoader
+from torch.autograd import Variable
+from torchvision.utils import save_image
 
 from models.SCGen import SCGen
 
@@ -108,6 +109,9 @@ class SCGAN(BaseModel):
         self.criterionL2.cuda()
         self.D_A.cuda()
         self.D_B.cuda()
+
+        self.init_time = datetime.now()
+        self.logfile_initialized = False
 
         # print("---------- Networks initialized -------------")
         # net_utils.print_network(self.SCGen)
@@ -444,12 +448,29 @@ class SCGAN(BaseModel):
             save_image(self.de_norm(img_train_list.data), save_path, normalize=True)
 
     def log_terminal(self):
+        if not self.logfile_initialized:
+            self.init_logfile()
+
         log = f" Epoch [{self.e + 1}/{self.num_epochs}], Iter [{self.i + 1}/{self.iters_per_epoch}]"
 
         for tag, value in self.loss.items():
             log += f", {tag}: {value:.4f}"
 
         print(log)
+
+        with open(f"log/{self.init_time}.csv", "a+") as logfile:
+            logfile.write(f"{self.e + 1},{self.i + 1}")
+            for _, value in self.loss.items():
+                logfile.write(f",{value}")
+            logfile.write("\n")
+
+    def init_logfile(self):
+        self.logfile_initialized = True
+        with open(f"log/{self.init_time}.csv", "a+") as logfile:
+            logfile.write(f"epoch,iter")
+            for tag, _ in self.loss.items():
+                logfile.write(f",{tag}")
+            logfile.write("\n")
 
     def save_models(self):
         if not osp.exists(self.snapshot_path):
