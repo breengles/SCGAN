@@ -1,11 +1,11 @@
 import os.path
 
 import numpy as np
-import PIL
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from torch.autograd import Variable
+from torchvision.transforms import InterpolationMode
 
 
 def ToTensor(pic):
@@ -42,19 +42,23 @@ class SCDataset:
         self.phase = opt.phase
         self.opt = opt
         self.root = opt.dataroot
-        self.dir_makeup = opt.dataroot
-        self.dir_nonmakeup = opt.dataroot
-        self.dir_seg = opt.dirmap  # parsing maps
+
+        self.dir_img = os.path.join(self.root, "images")
+        self.dir_img_makeup = os.path.join(self.dir_img, "makeup")
+        self.dir_img_nonmakeup = os.path.join(self.dir_img, "non-makeup")
+
+        self.dir_seg = os.path.join(self.root, "parsing")
+        self.dir_seg_makeup = os.path.join(self.dir_seg, "makeup")
+        self.dir_seg_nonmakeup = os.path.join(self.dir_seg, "non-makeup")
+
         self.n_components = opt.n_components
         self.makeup_names = []
         self.non_makeup_names = []
 
         if self.phase == "train":
-            self.makeup_names = [
-                name.strip() for name in open(os.path.join("MT-Dataset", "makeup.txt"), "rt").readlines()
-            ]
+            self.makeup_names = [name.strip() for name in open(os.path.join(self.root, "makeup.txt"), "rt").readlines()]
             self.non_makeup_names = [
-                name.strip() for name in open(os.path.join("MT-Dataset", "non-makeup.txt"), "rt").readlines()
+                name.strip() for name in open(os.path.join(self.root, "non-makeup.txt"), "rt").readlines()
             ]
 
         if self.phase == "test":
@@ -73,7 +77,7 @@ class SCDataset:
         )
 
         self.transform_mask = transforms.Compose(
-            [transforms.Resize((opt.img_size, opt.img_size), interpolation=PIL.Image.NEAREST), ToTensor]
+            [transforms.Resize((opt.img_size, opt.img_size), interpolation=InterpolationMode.NEAREST), ToTensor]
         )
 
     def __getitem__(self, index):
@@ -88,15 +92,14 @@ class SCDataset:
 
         # self.f.write(nonmakeup_name+' '+makeup_name+'\n')
         # self.f.flush()
-        nonmakeup_path = os.path.join(self.dir_nonmakeup, nonmakeup_name)
-
-        makeup_path = os.path.join(self.dir_makeup, makeup_name)
+        makeup_path = os.path.join(self.dir_img_makeup, makeup_name)
+        nonmakeup_path = os.path.join(self.dir_img_nonmakeup, nonmakeup_name)
 
         makeup_img = Image.open(makeup_path).convert("RGB")
         nonmakeup_img = Image.open(nonmakeup_path).convert("RGB")
 
-        makeup_seg_img = Image.open(os.path.join(self.dir_seg, makeup_name))
-        nonmakeup_seg_img = Image.open(os.path.join(self.dir_seg, nonmakeup_name))
+        makeup_seg_img = Image.open(os.path.join(self.dir_seg_makeup, makeup_name))
+        nonmakeup_seg_img = Image.open(os.path.join(self.dir_seg_nonmakeup, nonmakeup_name))
         # makeup_img = makeup_img.transpose(Image.FLIP_LEFT_RIGHT)
         # makeup_seg_img = makeup_seg_img.transpose(Image.FLIP_LEFT_RIGHT)
         # nonmakeup_img=nonmakeup_img.rotate(40)
@@ -157,7 +160,7 @@ class SCDataset:
         mask_A = {}
         mask_A["mask_A_eye_left"] = mask_A_eye_left
         mask_A["mask_A_eye_right"] = mask_A_eye_right
-        mask_A["index_A_eye_left"] = index_A_eye_left
+        mask_A["index_A_eye_left"] = index_A_eye_left  # проблемы с индексами, если хотим батч > 1
         mask_A["index_A_eye_right"] = index_A_eye_right
         mask_A["mask_A_skin"] = mask_A_skin
         mask_A["index_A_skin"] = index_A_skin
@@ -173,6 +176,7 @@ class SCDataset:
         mask_B["index_B_skin"] = index_B_skin
         mask_B["mask_B_lip"] = mask_B_lip
         mask_B["index_B_lip"] = index_B_lip
+
         return {
             "nonmakeup_seg": nonmakeup_seg,
             "makeup_seg": makeup_seg,
@@ -262,7 +266,7 @@ class SCDataLoader:
         self.dataset = SCDataset(opt)
         # print("Dataset loaded")
         self.dataloader = torch.utils.data.DataLoader(
-            self.dataset, batch_size=opt.batchSize, shuffle=not opt.serial_batches, num_workers=int(opt.nThreads)
+            self.dataset, batch_size=1, shuffle=not opt.serial_batches, num_workers=int(opt.nThreads)
         )
 
     def name(self):

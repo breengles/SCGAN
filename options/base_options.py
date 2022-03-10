@@ -10,9 +10,7 @@ class BaseOptions:
         self.parser.add_argument(
             "--init_type", type=str, default="xavier", help="network initialization [normal|xavier|kaiming|orthogonal]"
         )
-        self.parser.add_argument("--dataroot", type=str, default="MT-Dataset/images", help="path to images")
-        self.parser.add_argument("--dirmap", type=str, default="MT-Dataset/parsing", help="path to parsing maps)")
-        self.parser.add_argument("--batchSize", type=int, default=1, help="input batch size")
+        self.parser.add_argument("--dataroot", type=str, default="datasets/MT-Dataset", help="path to images")
         self.parser.add_argument("--input_nc", type=int, default=3, help="# of input image channels")
         self.parser.add_argument("--img_size", type=int, default=256, help="img size")
         self.parser.add_argument("--output_nc", type=int, default=3, help="# of output image channels")
