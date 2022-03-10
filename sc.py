@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+
 from models.models import create_model
 from options.test_options import TestOptions
 from SCDataset.SCDataset import SCDataLoader
