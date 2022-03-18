@@ -15,9 +15,12 @@ log/
 faceparsing/
 res/
 
-test_dataset/
 datasets/
 dataset/
+test_dataset/
+MT-Dataset*
+
 results/
 
-MT-Dataset*
+scgan.zip
+
