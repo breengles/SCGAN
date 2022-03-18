@@ -39,7 +39,7 @@ class Options:
         interpolation=False,
         init_type="xavier",
         dataroot="MT-Dataset/images",  # folder with
-        dirmap="MT-Dataset/parsing",
+        dirmap="MT-Dataset/segments",
         batchSize=1,
         input_nc=3,
         img_size=256,
@@ -294,8 +294,8 @@ def parsing(
     source_parent_dir = os.path.dirname(source_path)
     reference_parent_dir = os.path.dirname(reference_path)
 
-    source_seg_dir = source_parent_dir + "/parsing"
-    reference_seg_dir = reference_parent_dir + "/parsing"
+    source_seg_dir = source_parent_dir + "/segments"
+    reference_seg_dir = reference_parent_dir + "/segments"
 
     os.makedirs(source_seg_dir, exist_ok=True)
     os.makedirs(reference_seg_dir, exist_ok=True)
@@ -388,7 +388,7 @@ def transfer(
 
 if __name__ == "__main__":
     opt = Options(
-        phase="test", img_size=256, dataroot="dataset2/images", dirmap="dataset2/parsing", save_path="results/"
+        phase="test", img_size=256, dataroot="dataset2/images", dirmap="dataset2/segments", save_path="results/"
     )
 
     src_path = "dataset/non-makeup/xfsy_0444.png"
@@ -396,7 +396,7 @@ if __name__ == "__main__":
 
     results = transfer(source_path=src_path, reference_path=ref_path, opt=opt)
 
-    # source_seg, reference_seg = parsing(src_path, ref_path, to_dilate=True, to_fill=True, save=True,)
+    # source_seg, reference_seg = segments(src_path, ref_path, to_dilate=True, to_fill=True, save=True,)
     # source_mask = np.array(source_seg[1]).astype(np.uint8)
     # plt.imshow(source_mask)
     # plt.show()

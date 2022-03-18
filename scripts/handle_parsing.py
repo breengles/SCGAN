@@ -1,7 +1,7 @@
 from PIL import Image
 import numpy as np
 
-root = "MT-Dataset/parsing/makeup/"
+root = "MT-Dataset/segments/makeup/"
 paths = ["XMY-387.png"]
 for path in paths:
     path = root + path

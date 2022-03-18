@@ -41,7 +41,7 @@ def cut_eye_out(seg, init_seg, part=1):
 
 
 def main(path="../datasets/MT-Dataset", kind="makeup"):
-    path = os.path.join(path, "parsing", kind)
+    path = os.path.join(path, "segments", kind)
     for img_name in tqdm(os.listdir(path), desc=f"Seg ({kind}) preprocessing..."):
         img = Image.open(os.path.join(path, img_name))
         img = np.array(img)
