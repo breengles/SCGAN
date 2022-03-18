@@ -147,7 +147,7 @@ class SCDataset:
         if not ((mask_B_eye_left > 0).any() and (mask_B_eye_right > 0).any()):
             return {}
         # mask_A_eye_left, mask_A_eye_right = self.rebound_box(mask_A_eye_left, mask_A_eye_right, mask_A_face)
-        # mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
+        mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
         mask_A_eye_left, mask_B_eye_left, index_A_eye_left, index_B_eye_left = self.mask_preprocess(
             mask_A_eye_left, mask_B_eye_left
         )
