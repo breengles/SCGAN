@@ -166,13 +166,15 @@ class SCDataset(Dataset):
         mask_eye_right = self._get_mask_eye_right(mask)
         mask_face = self._get_mask_face(mask)
 
-        return {
-            "lip": mask_lip,
-            "skin": mask_skin,
-            "face": mask_face,
-            "left_eye": mask_eye_left,
-            "right_eye": mask_eye_right,
-        }
+        return mask_lip, mask_skin, mask_face, mask_eye_left, mask_eye_right
+
+        # return {
+        #     "lip": mask_lip,
+        #     "skin": mask_skin,
+        #     "face": mask_face,
+        #     "left_eye": mask_eye_left,
+        #     "right_eye": mask_eye_right,
+        # }
 
     def _get_indices(self, mask):
         index = torch.nonzero(mask, as_tuple=False)
@@ -194,7 +196,7 @@ class SCDataset(Dataset):
         index_1 = [x_index_A, y_index_A, x_index_B, y_index_B]
         index_2 = [x_index_B, y_index_B, x_index_A, y_index_A]
 
-        return index_1, index_2
+        return torch.vstack(index_1), torch.vstack(index_2)
 
     def pick_nonmakeup_name(self, index):
         return self.nonmakeup_img_names[index]
@@ -228,51 +230,65 @@ class SCDataset(Dataset):
         for part in (Regions.LEFT_EYE, Regions.RIGHT_EYE):
             makeup_seg = self._dilate_eye(makeup_seg, part, iterations=3)
 
-        makeup_regions = self._get_regions(makeup_seg)
-        nonmakeup_regions = self._get_regions(nonmakeup_seg)
+        (
+            makeup_mask_lip,
+            makeup_mask_skin,
+            makeup_mask_face,
+            makeup_mask_left_eye,
+            makeup_mask_right_eye,
+        ) = self._get_regions(makeup_seg)
+        (
+            nonmakeup_mask_lip,
+            nonmakeup_mask_skin,
+            nonmakeup_mask_face,
+            nonmakeup_mask_left_eye,
+            nonmakeup_mask_right_eye,
+        ) = self._get_regions(nonmakeup_seg)
 
-        nonmakeup_lip_index, makeup_lip_index = self._get_masks_index(nonmakeup_regions["lip"], makeup_regions["lip"])
-        nonmakeup_skin_index, makeup_skin_index = self._get_masks_index(
-            nonmakeup_regions["skin"], makeup_regions["skin"]
-        )
+        nonmakeup_lip_index, makeup_lip_index = self._get_masks_index(nonmakeup_mask_lip, makeup_mask_lip)
+        nonmakeup_skin_index, makeup_skin_index = self._get_masks_index(nonmakeup_mask_skin, makeup_mask_skin)
         nonmakeup_left_eye_index, makeup_left_eye_index = self._get_masks_index(
-            nonmakeup_regions["left_eye"], makeup_regions["left_eye"]
+            nonmakeup_mask_left_eye, makeup_mask_left_eye
         )
         nonmakeup_right_eye_index, makeup_right_eye_index = self._get_masks_index(
-            nonmakeup_regions["right_eye"], makeup_regions["right_eye"]
+            nonmakeup_mask_right_eye, makeup_mask_right_eye
         )
 
         mask_makeup = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float32)
         mask_nonmakeup = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float32)
 
-        mask_makeup[0] = makeup_regions["lip"]
-        mask_makeup[1] = makeup_regions["skin"]
-        mask_makeup[2] = makeup_regions["left_eye"] + makeup_regions["right_eye"]
+        mask_makeup[0] = makeup_mask_lip
+        mask_makeup[1] = makeup_mask_skin
+        mask_makeup[2] = makeup_mask_left_eye + makeup_mask_right_eye
 
-        mask_nonmakeup[0] = nonmakeup_regions["lip"]
-        mask_nonmakeup[1] = nonmakeup_regions["skin"]
-        mask_nonmakeup[2] = nonmakeup_regions["left_eye"] + makeup_regions["right_eye"]
-
-        makeup_regions["left_eye_index"] = makeup_left_eye_index
-        makeup_regions["right_eye_index"] = makeup_right_eye_index
-        makeup_regions["lip_index"] = makeup_lip_index
-        makeup_regions["skin_index"] = makeup_skin_index
-
-        nonmakeup_regions["left_eye_index"] = nonmakeup_left_eye_index
-        nonmakeup_regions["right_eye_index"] = nonmakeup_right_eye_index
-        nonmakeup_regions["lip_index"] = nonmakeup_lip_index
-        nonmakeup_regions["skin_index"] = nonmakeup_skin_index
+        mask_nonmakeup[0] = nonmakeup_mask_lip
+        mask_nonmakeup[1] = nonmakeup_mask_skin
+        mask_nonmakeup[2] = nonmakeup_mask_left_eye + nonmakeup_mask_right_eye
 
         return {
-            "mask_nonmakeup": mask_nonmakeup,
-            "mask_makeup": mask_makeup,
+            "nonmakeup_seg": mask_nonmakeup,
+            "makeup_seg": mask_makeup,
             "nonmakeup_img": nonmakeup_img,
             "makeup_img": makeup_img,
-            "makeup_regions": makeup_regions,
-            "nonmakeup_regions": nonmakeup_regions,
+            "makeup_mask_lip": makeup_mask_lip,
+            "makeup_mask_skin": makeup_mask_skin,
+            "makeup_mask_left_eye": makeup_mask_left_eye,
+            "makeup_mask_right_eye": makeup_mask_right_eye,
+            "makeup_lip_index": makeup_lip_index,
+            "makeup_skin_index": makeup_skin_index,
+            "makeup_left_eye_index": makeup_left_eye_index,
+            "makeup_right_eye_index": makeup_right_eye_index,
+            "nonmakeup_mask_lip": nonmakeup_mask_lip,
+            "nonmakeup_mask_skin": nonmakeup_mask_skin,
+            "nonmakeup_mask_left_eye": nonmakeup_mask_left_eye,
+            "nonmakeup_mask_right_eye": nonmakeup_mask_right_eye,
+            "nonmakeup_lip_index": nonmakeup_lip_index,
+            "nonmakeup_skin_index": nonmakeup_skin_index,
+            "nonmakeup_left_eye_index": nonmakeup_left_eye_index,
+            "nonmakeup_right_eye_index": nonmakeup_right_eye_index,
             "makeup_unchanged": makeup_mask_unchanged,
             "nonmakeup_unchanged": nonmakeup_mask_unchanged,
-            "valid": ((makeup_regions["left_eye"] > 0).any() and (makeup_regions["right_eye"] > 0).any()),
+            "valid": ((makeup_mask_left_eye > 0).any() and (makeup_mask_right_eye > 0).any()),
         }
 
 

@@ -11,7 +11,7 @@ class AdaptiveInstanceNorm2d(nn.Module):
         self.eps = eps
         self.momentum = momentum
 
-        self.weights = None
+        self.weight = None
         self.bias = None
 
         self.register_buffer("running_mean", torch.zeros(num_features))

@@ -1,10 +1,10 @@
 from torch import nn
 from torch.nn.utils.parametrizations import spectral_norm
 
-from utils import Norm, Activation, get_activation, get_norm
+from src.utils import Activation, Norm, get_activation, get_norm
 
 
-class LinearBlock(nn.Module):
+class FCBlock(nn.Module):
     def __init__(self, inp_dim, out_dim, bias=True, norm=Norm.NONE, activation=Activation.RELU):
         super().__init__()
 
@@ -36,7 +36,7 @@ class ConvBlock(nn.Module):
         kernel_size,
         stride,
         padding=0,
-        padding_mode="zero",
+        padding_mode="zeros",
         bias=True,
         norm=Norm.NONE,
         activation=Activation.NONE,
@@ -72,7 +72,7 @@ class ConvBlock(nn.Module):
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, dim, norm=Norm.IN, activation=Activation.RELU, padding_mode="zero", bias=True):
+    def __init__(self, dim, norm=Norm.IN, activation=Activation.RELU, padding_mode="zeros", bias=True):
         super().__init__()
 
         self.main = nn.Sequential(
@@ -85,7 +85,7 @@ class ResidualBlock(nn.Module):
 
 
 class ResidualBlocks(nn.Module):
-    def __init__(self, num_blocks, dim, norm=Norm.IN, activation=Activation.RELU, padding_mode="zero", bias=True):
+    def __init__(self, num_blocks, dim, norm=Norm.IN, activation=Activation.RELU, padding_mode="zeros", bias=True):
         super().__init__()
 
         blocks = [ResidualBlock(dim, norm, activation, padding_mode, bias) for _ in range(num_blocks)]
@@ -93,24 +93,3 @@ class ResidualBlocks(nn.Module):
 
     def forward(self, x):
         return self.main(x)
-
-
-class MLP(nn.Module):
-    def __init__(self, inp_dim, inner_dim, out_dim, num_blocks, norm=Norm.NONE, activ=Activation.RELU):
-        super().__init__()
-
-        modules = [
-            LinearBlock(inp_dim, inp_dim, norm=norm, activation=activ),
-            LinearBlock(inp_dim, inner_dim, norm=norm, activation=activ),
-        ]
-
-        modules.extend([LinearBlock(inner_dim, inner_dim, norm=norm, activation=activ) for _ in range(num_blocks - 2)])
-
-        self.main = nn.ModuleList(modules)
-        self.final = LinearBlock(inner_dim, out_dim, norm=Norm.NONE, activation=Activation.NONE)
-
-    def forward(self, style_0, style_1, alpha=0):
-        x_0 = self.main(style_0.reshape(style_0.shape[0], -1))
-        x_1 = self.main(style_1.reshape(style_1.shape[0], -1))
-
-        return self.final((1 - alpha) * x_0 + alpha * x_1)
