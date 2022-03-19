@@ -20,7 +20,5 @@ dataset/
 test_dataset/
 MT-Dataset*
 
-results/
-
 scgan.zip
-
+wandb/
