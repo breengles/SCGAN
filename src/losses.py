@@ -1,11 +1,8 @@
-from copy import deepcopy
-
 import torch
 import torch.nn as nn
-from datetime import datetime
-from skimage import exposure
 from skimage.exposure import match_histograms
-from matplotlib import pyplot as plt
+
+from src.utils import tensor2image
 
 
 class GANLoss(nn.Module):
@@ -31,15 +28,10 @@ class HistogramLoss(nn.Module):
         self.loss = nn.MSELoss()
         self.device = device
 
-    @staticmethod
-    def denorm(x):
-        out = (x + 1) * 0.5
-        return out.clip(0, 1)
-
     def forward(self, src_img, target_img, src_mask, target_mask, ref_img):
-        src_img = self.denorm(src_img)
-        target_img = self.denorm(target_img)
-        ref_img = self.denorm(ref_img)
+        src_img = tensor2image(src_img)
+        target_img = tensor2image(target_img)
+        ref_img = tensor2image(ref_img)
 
         src_mask = src_mask.expand(-1, 3, src_mask.shape[2], src_mask.shape[3])
         target_mask = target_mask.expand(-1, 3, target_mask.shape[2], target_mask.shape[3])
@@ -68,4 +60,4 @@ class HistogramLoss(nn.Module):
 
         matched = match_histograms(src_align, ref_align, multichannel=True).transpose(2, 0, 1)
 
-        return torch.tensor(matched, dtype=torch.float32, device=self.device)
+        return torch.tensor(matched, dtype=torch.float32, device=self.device).unsqueeze(0)

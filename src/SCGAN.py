@@ -1,17 +1,16 @@
 import os
-from datetime import datetime
 
 import torch
 import wandb
 from torch import nn
 from torch.optim import Adam
 from torchvision.utils import save_image
-from tqdm.auto import tqdm, trange
+from tqdm.auto import trange
 
 from src.SCDis import SCDis
 from src.SCGen import SCGen
 from src.losses import GANLoss, HistogramLoss
-from src.utils import Norm, xavier_init
+from src.utils import Norm, tensor2image, xavier_init
 from src.vgg import VGG
 
 
@@ -275,7 +274,6 @@ class SCGAN(nn.Module):
         pred = self.D_B(fake_nonmakeup)
         adv_loss_B = self.criterionGAN(pred, 1.0)
 
-        start = datetime.now()
         hist_loss_A, hist_loss_B = self.calc_hist_loss(
             fake_makeup,
             fake_nonmakeup,
@@ -290,7 +288,6 @@ class SCGAN(nn.Module):
             nonmakeup_mask_left_eye,
             nonmakeup_mask_right_eye,
         )
-        tqdm.write(f"Hist: {datetime.now() - start}")
 
         cycle_A, cycle_B, vgg_A, vgg_B = self.calc_recon_loss(
             fake_makeup, fake_nonmakeup, makeup_img, nonmakeup_img, makeup_seg, nonmakeup_seg
@@ -319,7 +316,7 @@ class SCGAN(nn.Module):
         betas=(0.5, 0.999),
         result_path="results/",
         log_step=8,
-        save_step=2048,
+        save_step=1,
         checkpoint_step=10,
         checkpoint_path="checkpoints/",
     ):
@@ -333,8 +330,11 @@ class SCGAN(nn.Module):
         d_A_optim = Adam(self.D_A.parameters(), lr=d_lr, betas=betas)
         d_B_optim = Adam(self.D_B.parameters(), lr=d_lr, betas=betas)
 
+        iter = 0
         for epoch in trange(epochs, desc="Training"):
-            for i, batch in enumerate(tqdm(trainloader, desc="Batch...", leave=False)):
+            for batch in trainloader:
+                iter += 1
+
                 batch = self.extract_batch(batch)
 
                 d_A_loss = self.calc_disc_loss(
@@ -351,7 +351,7 @@ class SCGAN(nn.Module):
                 d_B_loss.backward()
                 d_B_optim.step()
 
-                if (i + 1) % g_step == 0:
+                if (iter + 1) % g_step == 0:
                     idt_A, idt_B = self.calc_idt_loss(
                         batch["makeup_img"], batch["makeup_seg"], batch["nonmakeup_img"], batch["nonmakeup_seg"]
                     )
@@ -402,14 +402,10 @@ class SCGAN(nn.Module):
                         }
                     )
 
-                    if (i + 1) % save_step == 0:
-                        self.save_images(imgs, epoch, i + 1, save_img_on_train_path)
-
-    @staticmethod
-    def tensor2image(x):
-        return (0.5 * (x + 1)).clip(0, 1)
+                    if (iter + 1) % save_step == 0:
+                        self.save_images(imgs, epoch, iter + 1, save_img_on_train_path)
 
     def save_images(self, images, epoch, step, path):
         images = torch.cat(images, dim=3)
         save_path = os.path.join(path, f"{epoch}_{step}.png")
-        save_image(self.tensor2image(images), save_path, normalize=True)
+        save_image(tensor2image(images), save_path, normalize=True)

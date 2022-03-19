@@ -7,6 +7,10 @@ from torch.nn import init
 from src.AdaIN import AdaptiveInstanceNorm2d
 
 
+def tensor2image(x):
+    return (0.5 * (x + 1)).clip(0, 1)
+
+
 class Norm(Enum):
     SN = auto()
     BN = auto()
