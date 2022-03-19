@@ -7,8 +7,8 @@ checkpoints/
 G.original.pth
 StyleGAN/
 
-vgg_conv.pth
-vgg.pth
+vgg/vgg_conv.pth
+vgg/vgg.pth
 
 results/
 log/
