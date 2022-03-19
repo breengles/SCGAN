@@ -1,0 +1,14 @@
+dataroot: datasets/daniil.128px.cut.crop.overfit
+img_size: 128
+batch_size: 2
+epochs: 1000
+device: cuda
+
+
+wandb:
+  project: "SCGAN"
+  entity: "makeup_science"
+  name: "makeup"
+  group: "test scgan"
+  notes: "test"
+  local: True
