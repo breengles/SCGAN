@@ -3,8 +3,9 @@ from copy import deepcopy
 import torch
 import torch.nn as nn
 from datetime import datetime
-
-# from skimage.exposure import match_histogram
+from skimage import exposure
+from skimage.exposure import match_histograms
+from matplotlib import pyplot as plt
 
 
 class GANLoss(nn.Module):
@@ -27,99 +28,44 @@ class HistogramLoss(nn.Module):
     def __init__(self, device="cpu"):
         super().__init__()
 
-        self.loss = nn.L1Loss()
+        self.loss = nn.MSELoss()
         self.device = device
 
     @staticmethod
     def denorm(x):
         out = (x + 1) * 0.5
-        return out.clip(0, 1) * 255
+        return out.clip(0, 1)
 
-    def forward(self, x, y, mask_src, mask_target, index, ref):
-        x = self.denorm(x)
-        y = self.denorm(y)
-        ref = self.denorm(ref)
+    def forward(self, src_img, target_img, src_mask, target_mask, ref_img):
+        src_img = self.denorm(src_img)
+        target_img = self.denorm(target_img)
+        ref_img = self.denorm(ref_img)
 
-        mask_src = mask_src.expand(-1, 3, mask_src.shape[2], mask_src.shape[2])
-        mask_target = mask_target.expand(-1, 3, mask_target.shape[2], mask_target.shape[2])
+        src_mask = src_mask.expand(-1, 3, src_mask.shape[2], src_mask.shape[3])
+        target_mask = target_mask.expand(-1, 3, target_mask.shape[2], target_mask.shape[3])
 
-        input_masked = x * mask_src
-        target_masked = y * mask_target
-        ref_masked = ref * mask_src
+        src_masked = src_img * src_mask
+        target_masked = target_img * target_mask
+        ref_masked = ref_img * src_mask
 
-        input_match = []
-        for ref, target, idx in zip(ref_masked, target_masked, index):
-            input_match.append(self.histogram_matching(ref, target, idx))  # TODO: batch support
-        input_match = torch.vstack(input_match)
+        matched = []
+        for ref, target, mask in zip(ref_masked, target_masked, src_mask):
+            matched.append(self.histogram_matching(ref, target) * mask)  # TODO: check correctness
+        matched = torch.vstack(matched)
 
-        return self.loss(input_masked, input_match)
+        return self.loss(src_masked, matched)
 
     @torch.no_grad()
-    def histogram_matching(self, src_img, ref_img, index):
+    def histogram_matching(self, src_img, ref_img):
         """
         perform histogram matching
         src_img is transformed to have the same the histogram with ref_img's
         index[0], index[1]: the index of pixels that need to be transformed in src_img
         index[2], index[3]: the index of pixels that to compute histogram in ref_img
         """
-        index = [x[x != -1] for x in index]
+        src_align = src_img.cpu().numpy().transpose(1, 2, 0)
+        ref_align = ref_img.cpu().numpy().transpose(1, 2, 0)
 
-        src_img = src_img
-        ref_img = ref_img
+        matched = match_histograms(src_align, ref_align, multichannel=True).transpose(2, 0, 1)
 
-        dst_align = src_img[:, index[0], index[1]]
-        ref_align = ref_img[:, index[2], index[3]]
-
-        hist_ref = self.calc_histogram(ref_align)
-        hist_dst = self.calc_histogram(dst_align)
-
-        tables = [self.calc_transfer_func(hist_dst[i], hist_ref[i]) for i in range(0, 3)]
-
-        mid = deepcopy(dst_align)
-
-        for i in range(3):
-            for k in range(0, len(index[0])):
-                dst_align[i][k] = tables[i][int(mid[i][k])]
-
-            src_img[i, index[0], index[1]] = dst_align[i]
-
-        return src_img.unsqueeze(0)
-
-    @staticmethod
-    def calc_histogram(image):
-        """
-        cal cumulative hist for channel list
-        """
-
-        hists = []
-        for i in range(3):
-            channel = image[i]
-            hist = torch.histc(channel, bins=256, min=0, max=256)
-            sum = hist.sum()
-            pdf = [v / sum for v in hist]
-
-            for i in range(1, 256):
-                pdf[i] = pdf[i - 1] + pdf[i]
-
-            hists.append(pdf)
-
-        return hists
-
-    @staticmethod
-    def calc_transfer_func(ref, adj):
-        """
-        calculate transfer function
-        algorithm refering to wiki item: Histogram matching
-        """
-
-        table = list(range(0, 256))
-
-        for i in list(range(1, 256)):
-            for j in list(range(1, 256)):
-                if adj[j - 1] <= ref[i] <= adj[j]:
-                    table[i] = j
-                    break
-
-        table[255] = 255
-
-        return table
+        return torch.tensor(matched, dtype=torch.float32, device=self.device)

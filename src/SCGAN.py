@@ -90,10 +90,11 @@ class SCGAN(nn.Module):
         self.D_B.to(self.device)
         self.vgg.to(self.device)
 
-        self.criterionGAN.device = self.device
         self.criterionL1.to(self.device)
         self.criterionL2.to(self.device)
         self.criterionHist.to(self.device)
+        self.criterionGAN.device = self.device
+        self.criterionHist.device = self.device
 
     def disable_vgg_grad(self):
         for param in self.vgg.parameters():
@@ -172,87 +173,47 @@ class SCGAN(nn.Module):
         nonmakeup_mask_skin,
         nonmakeup_mask_left_eye,
         nonmakeup_mask_right_eye,
-        makeup_mask_lip_index,
-        makeup_mask_skin_index,
-        makeup_mask_left_eye_index,
-        makeup_mask_right_eye_index,
-        nonmakeup_mask_lip_index,
-        nonmakeup_mask_skin_index,
-        nonmakeup_mask_left_eye_index,
-        nonmakeup_mask_right_eye_index,
     ):
         # LIP HIST
         hist_loss_lip_A = (
-            self.criterionHist(
-                fake_makeup, makeup_img, nonmakeup_mask_lip, makeup_mask_lip, nonmakeup_mask_lip_index, nonmakeup_img
-            )
+            self.criterionHist(fake_makeup, makeup_img, nonmakeup_mask_lip, makeup_mask_lip, nonmakeup_img)
             * self.lambdas["hist_lip"]
         )
 
         hist_loss_lip_B = (
-            self.criterionHist(
-                fake_nonmakeup, nonmakeup_img, makeup_mask_lip, nonmakeup_mask_lip, makeup_mask_lip_index, makeup_img
-            )
+            self.criterionHist(fake_nonmakeup, nonmakeup_img, makeup_mask_lip, nonmakeup_mask_lip, makeup_img)
             * self.lambdas["hist_lip"]
         )
 
         # SKIN HIST
         hist_loss_skin_A = (
-            self.criterionHist(
-                fake_makeup, makeup_img, nonmakeup_mask_skin, makeup_mask_skin, nonmakeup_mask_skin_index, nonmakeup_img
-            )
+            self.criterionHist(fake_makeup, makeup_img, nonmakeup_mask_skin, makeup_mask_skin, nonmakeup_img)
             * self.lambdas["hist_skin"]
         )
 
         hist_loss_skin_B = (
-            self.criterionHist(
-                fake_nonmakeup, nonmakeup_img, makeup_mask_skin, nonmakeup_mask_skin, makeup_mask_skin_index, makeup_img
-            )
+            self.criterionHist(fake_nonmakeup, nonmakeup_img, makeup_mask_skin, nonmakeup_mask_skin, makeup_img)
             * self.lambdas["hist_skin"]
         )
 
         # EYES
         hist_loss_left_eye_A = (
-            self.criterionHist(
-                fake_makeup,
-                makeup_img,
-                nonmakeup_mask_left_eye,
-                makeup_mask_left_eye,
-                nonmakeup_mask_left_eye_index,
-                nonmakeup_img,
-            )
+            self.criterionHist(fake_makeup, makeup_img, nonmakeup_mask_left_eye, makeup_mask_left_eye, nonmakeup_img,)
             * self.lambdas["hist_eye"]
         )
         hist_loss_left_eye_B = (
             self.criterionHist(
-                fake_nonmakeup,
-                nonmakeup_img,
-                makeup_mask_left_eye,
-                nonmakeup_mask_left_eye,
-                makeup_mask_left_eye_index,
-                makeup_img,
+                fake_nonmakeup, nonmakeup_img, makeup_mask_left_eye, nonmakeup_mask_left_eye, makeup_img,
             )
             * self.lambdas["hist_eye"]
         )
         hist_loss_right_eye_A = (
-            self.criterionHist(
-                fake_makeup,
-                makeup_img,
-                nonmakeup_mask_right_eye,
-                makeup_mask_right_eye,
-                nonmakeup_mask_right_eye_index,
-                nonmakeup_img,
-            )
+            self.criterionHist(fake_makeup, makeup_img, nonmakeup_mask_right_eye, makeup_mask_right_eye, nonmakeup_img,)
             * self.lambdas["hist_eye"]
         )
         hist_loss_right_eye_B = (
             self.criterionHist(
-                fake_nonmakeup,
-                nonmakeup_img,
-                makeup_mask_right_eye,
-                nonmakeup_mask_right_eye,
-                makeup_mask_right_eye_index,
-                makeup_img,
+                fake_nonmakeup, nonmakeup_img, makeup_mask_right_eye, nonmakeup_mask_right_eye, makeup_img,
             )
             * self.lambdas["hist_eye"]
         )
@@ -305,14 +266,6 @@ class SCGAN(nn.Module):
         nonmakeup_mask_skin,
         nonmakeup_mask_left_eye,
         nonmakeup_mask_right_eye,
-        makeup_mask_lip_index,
-        makeup_mask_skin_index,
-        makeup_mask_left_eye_index,
-        makeup_mask_right_eye_index,
-        nonmakeup_mask_lip_index,
-        nonmakeup_mask_skin_index,
-        nonmakeup_mask_left_eye_index,
-        nonmakeup_mask_right_eye_index,
     ):
         fake_makeup = self.SCGen(nonmakeup_img, nonmakeup_seg, makeup_img)
         pred = self.D_A(fake_makeup)
@@ -336,14 +289,6 @@ class SCGAN(nn.Module):
             nonmakeup_mask_skin,
             nonmakeup_mask_left_eye,
             nonmakeup_mask_right_eye,
-            makeup_mask_lip_index,
-            makeup_mask_skin_index,
-            makeup_mask_left_eye_index,
-            makeup_mask_right_eye_index,
-            nonmakeup_mask_lip_index,
-            nonmakeup_mask_skin_index,
-            nonmakeup_mask_left_eye_index,
-            nonmakeup_mask_right_eye_index,
         )
         tqdm.write(f"Hist: {datetime.now() - start}")
 
@@ -434,14 +379,6 @@ class SCGAN(nn.Module):
                         batch["nonmakeup_mask_skin"],
                         batch["nonmakeup_mask_left_eye"],
                         batch["nonmakeup_mask_right_eye"],
-                        batch["makeup_lip_index"],
-                        batch["makeup_skin_index"],
-                        batch["makeup_left_eye_index"],
-                        batch["makeup_right_eye_index"],
-                        batch["nonmakeup_lip_index"],
-                        batch["nonmakeup_skin_index"],
-                        batch["nonmakeup_left_eye_index"],
-                        batch["nonmakeup_right_eye_index"],
                     )
 
                     idt_loss = 0.5 * (idt_A + idt_B)

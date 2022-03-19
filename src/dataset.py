@@ -168,14 +168,6 @@ class SCDataset(Dataset):
 
         return mask_lip, mask_skin, mask_face, mask_eye_left, mask_eye_right
 
-        # return {
-        #     "lip": mask_lip,
-        #     "skin": mask_skin,
-        #     "face": mask_face,
-        #     "left_eye": mask_eye_left,
-        #     "right_eye": mask_eye_right,
-        # }
-
     def _get_indices(self, mask):
         index = torch.nonzero(mask, as_tuple=False)
         x_index = index[:, 2]
@@ -245,14 +237,14 @@ class SCDataset(Dataset):
             nonmakeup_mask_right_eye,
         ) = self._get_regions(nonmakeup_seg)
 
-        nonmakeup_lip_index, makeup_lip_index = self._get_masks_index(nonmakeup_mask_lip, makeup_mask_lip)
-        nonmakeup_skin_index, makeup_skin_index = self._get_masks_index(nonmakeup_mask_skin, makeup_mask_skin)
-        nonmakeup_left_eye_index, makeup_left_eye_index = self._get_masks_index(
-            nonmakeup_mask_left_eye, makeup_mask_left_eye
-        )
-        nonmakeup_right_eye_index, makeup_right_eye_index = self._get_masks_index(
-            nonmakeup_mask_right_eye, makeup_mask_right_eye
-        )
+        # nonmakeup_lip_index, makeup_lip_index = self._get_masks_index(nonmakeup_mask_lip, makeup_mask_lip)
+        # nonmakeup_skin_index, makeup_skin_index = self._get_masks_index(nonmakeup_mask_skin, makeup_mask_skin)
+        # nonmakeup_left_eye_index, makeup_left_eye_index = self._get_masks_index(
+        #     nonmakeup_mask_left_eye, makeup_mask_left_eye
+        # )
+        # nonmakeup_right_eye_index, makeup_right_eye_index = self._get_masks_index(
+        #     nonmakeup_mask_right_eye, makeup_mask_right_eye
+        # )
 
         mask_makeup = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float32)
         mask_nonmakeup = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float32)
@@ -270,24 +262,24 @@ class SCDataset(Dataset):
             "makeup_seg": mask_makeup,
             "nonmakeup_img": nonmakeup_img,
             "makeup_img": makeup_img,
+            "makeup_unchanged": makeup_mask_unchanged,
+            "nonmakeup_unchanged": nonmakeup_mask_unchanged,
             "makeup_mask_lip": makeup_mask_lip,
             "makeup_mask_skin": makeup_mask_skin,
             "makeup_mask_left_eye": makeup_mask_left_eye,
             "makeup_mask_right_eye": makeup_mask_right_eye,
-            "makeup_lip_index": makeup_lip_index,
-            "makeup_skin_index": makeup_skin_index,
-            "makeup_left_eye_index": makeup_left_eye_index,
-            "makeup_right_eye_index": makeup_right_eye_index,
             "nonmakeup_mask_lip": nonmakeup_mask_lip,
             "nonmakeup_mask_skin": nonmakeup_mask_skin,
             "nonmakeup_mask_left_eye": nonmakeup_mask_left_eye,
             "nonmakeup_mask_right_eye": nonmakeup_mask_right_eye,
-            "nonmakeup_lip_index": nonmakeup_lip_index,
-            "nonmakeup_skin_index": nonmakeup_skin_index,
-            "nonmakeup_left_eye_index": nonmakeup_left_eye_index,
-            "nonmakeup_right_eye_index": nonmakeup_right_eye_index,
-            "makeup_unchanged": makeup_mask_unchanged,
-            "nonmakeup_unchanged": nonmakeup_mask_unchanged,
+            # "makeup_lip_index": makeup_lip_index,
+            # "makeup_skin_index": makeup_skin_index,
+            # "makeup_left_eye_index": makeup_left_eye_index,
+            # "makeup_right_eye_index": makeup_right_eye_index,
+            # "nonmakeup_lip_index": nonmakeup_lip_index,
+            # "nonmakeup_skin_index": nonmakeup_skin_index,
+            # "nonmakeup_left_eye_index": nonmakeup_left_eye_index,
+            # "nonmakeup_right_eye_index": nonmakeup_right_eye_index,
             "valid": ((makeup_mask_left_eye > 0).any() and (makeup_mask_right_eye > 0).any()),
         }
 
