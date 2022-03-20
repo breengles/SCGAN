@@ -1,16 +1,14 @@
-import os
-
 import torch
 import wandb
 from torch import nn
 from torch.optim import Adam
-from torchvision.utils import save_image
 from tqdm.auto import trange
 
 from src.SCDis import SCDis
 from src.SCGen import SCGen
+from src.log_utils import save_images
 from src.losses import GANLoss, HistogramLoss
-from src.utils import Norm, tensor2image, xavier_init
+from src.utils import Norm, xavier_init
 from src.vgg import VGG
 
 
@@ -26,7 +24,7 @@ class SCGAN(nn.Module):
         lambda_his_eye=1.0,
         lambda_vgg=5e-3,
         d_conv_dim=64,
-        norm1=Norm.SN,
+        norm=Norm.SN,
         vgg_path="vgg/vgg.pth",
         vgg_conv_path="vgg/vgg_conv.pth",
         ngf=64,  # number of gen filters in first conv layer
@@ -36,17 +34,15 @@ class SCGAN(nn.Module):
         mlp_dim=256,
         n_components=3,
         input_nc=3,
-        resume=False,
     ):
         super().__init__()
         self.img_size = img_size
         self.d_conv_dim = d_conv_dim
-        self.norm1 = norm1
+        self.norm = norm
         self.mask_A = {}
         self.mask_B = {}
         self.vgg_path = vgg_path
         self.vgg_conv_path = vgg_conv_path
-        self.resume = resume
         self.lambdas = {
             "idt": lambda_idt,
             "A": lambda_A,
@@ -69,8 +65,8 @@ class SCGAN(nn.Module):
             inp_dim=input_nc,
         )
 
-        self.D_A = SCDis(img_size, self.d_conv_dim, self.norm1)
-        self.D_B = SCDis(img_size, self.d_conv_dim, self.norm1)
+        self.D_A = SCDis(img_size, self.d_conv_dim, self.norm)
+        self.D_B = SCDis(img_size, self.d_conv_dim, self.norm)
 
         self.vgg = VGG()
 
@@ -109,26 +105,26 @@ class SCGAN(nn.Module):
         self.vgg.load_state_dict(torch.load(self.vgg_conv_path))
         self.SCGen.PSEnc.load_vgg(self.vgg_path)
 
-        if self.resume:
-            G_path = os.path.join(self.snapshot_path, "G.pth")
-            D_A_path = os.path.join(self.snapshot_path, "D_A.pth")
-            D_B_path = os.path.join(self.snapshot_path, "D_B.pth")
-
-            if not os.path.exists(G_path):
-                raise ValueError(f"{G_path} does not exist")
-            if not os.path.exists(D_A_path):
-                raise ValueError(f"{D_A_path} does not exist")
-            if not os.path.exists(D_B_path):
-                raise ValueError(f"{D_B_path} does not exist")
-
-            self.SCGen.load_state_dict(torch.load(G_path))
-            print(f"loaded trained generator {G_path}..!")
-
-            self.D_A.load_state_dict(torch.load(D_A_path))
-            print(f"loaded trained discriminator A {D_A_path}..!")
-
-            self.D_B.load_state_dict(torch.load(D_B_path))
-            print(f"loaded trained discriminator B {D_B_path}..!")
+        # if self.resume:
+        #     G_path = os.path.join(self.snapshot_path, "G.pth")
+        #     D_A_path = os.path.join(self.snapshot_path, "D_A.pth")
+        #     D_B_path = os.path.join(self.snapshot_path, "D_B.pth")
+        #
+        #     if not os.path.exists(G_path):
+        #         raise ValueError(f"{G_path} does not exist")
+        #     if not os.path.exists(D_A_path):
+        #         raise ValueError(f"{D_A_path} does not exist")
+        #     if not os.path.exists(D_B_path):
+        #         raise ValueError(f"{D_B_path} does not exist")
+        #
+        #     self.SCGen.load_state_dict(torch.load(G_path))
+        #     print(f"loaded trained generator {G_path}..!")
+        #
+        #     self.D_A.load_state_dict(torch.load(D_A_path))
+        #     print(f"loaded trained discriminator A {D_A_path}..!")
+        #
+        #     self.D_B.load_state_dict(torch.load(D_B_path))
+        #     print(f"loaded trained discriminator B {D_B_path}..!")
 
         self.disable_vgg_grad()
 
@@ -302,38 +298,26 @@ class SCGAN(nn.Module):
             cycle_B,
             vgg_A,
             vgg_B,
-            (nonmakeup_img, makeup_img, fake_makeup),
+            [nonmakeup_img, makeup_img, fake_makeup],
         )
 
     def fit(
-        self,
-        trainloader,
-        epochs=1,
-        g_step=1,
-        num_epochs_decay=0,
-        g_lr=2e-4,
-        d_lr=2e-4,
-        betas=(0.5, 0.999),
-        result_path="results/",
-        log_step=8,
-        save_step=1,
-        checkpoint_step=10,
-        checkpoint_path="checkpoints/",
+        self, trainloader, epochs=1, g_step=1, g_lr=2e-4, d_lr=2e-4, betas=(0.5, 0.999), save_step=1,
     ):
         self.initialize_weights()
         self.move_to_device()
-
-        save_img_on_train_path = os.path.join(result_path, "train")
-        os.makedirs(save_img_on_train_path, exist_ok=True)
 
         g_optim = Adam(self.SCGen.parameters(), lr=g_lr, betas=betas)
         d_A_optim = Adam(self.D_A.parameters(), lr=d_lr, betas=betas)
         d_B_optim = Adam(self.D_B.parameters(), lr=d_lr, betas=betas)
 
-        iter = 0
-        for epoch in trange(epochs, desc="Training"):
+        it = 0
+        for _ in trange(epochs, desc="Training"):
             for batch in trainloader:
-                iter += 1
+                if batch["valid"].sum() == 0:
+                    continue
+
+                it += 1
 
                 batch = self.extract_batch(batch)
 
@@ -351,7 +335,7 @@ class SCGAN(nn.Module):
                 d_B_loss.backward()
                 d_B_optim.step()
 
-                if (iter + 1) % g_step == 0:
+                if (it + 1) % g_step == 0:
                     idt_A, idt_B = self.calc_idt_loss(
                         batch["makeup_img"], batch["makeup_seg"], batch["nonmakeup_img"], batch["nonmakeup_seg"]
                     )
@@ -391,21 +375,19 @@ class SCGAN(nn.Module):
 
                     wandb.log(
                         {
-                            "gen/A-loss-adv": adv_loss_A.detach().cpu().numpy().mean(),
-                            "gen/B-loss-adv": adv_loss_B.detach().cpu().numpy().mean(),
-                            "gen/A-loss-cyc": cycle_A.detach().cpu().numpy().mean(),
-                            "gen/B-loss-cyc": cycle_B.detach().cpu().numpy().mean(),
-                            "gen/loss-idt": idt_loss.detach().cpu().numpy().mean(),
+                            "gen/adv-A": adv_loss_A.detach().cpu().numpy().mean(),
+                            "gen/adv-B": adv_loss_B.detach().cpu().numpy().mean(),
+                            "gen/cyc-A": cycle_A.detach().cpu().numpy().mean(),
+                            "gen/cyc-B": cycle_B.detach().cpu().numpy().mean(),
+                            "gen/idt": idt_loss.detach().cpu().numpy().mean(),
                             "gen/recon": (cycle_A + cycle_B).detach().cpu().numpy().mean(),
                             "gen/vgg": (vgg_A + vgg_B).detach().cpu().numpy().mean(),
-                            "gen/A-hist": hist_loss_A.detach().cpu().numpy(),
+                            "gen/A-hist": hist_loss_A.detach().cpu().numpy().mean(),
+                            "gen/total": g_loss.detach().cpu().numpy().mean(),
+                            "disc/A": d_A_loss.detach().cpu().numpy().mean(),
+                            "disc/B": d_B_loss.detach().cpu().numpy().mean(),
                         }
                     )
 
-                    if (iter + 1) % save_step == 0:
-                        self.save_images(imgs, epoch, iter + 1, save_img_on_train_path)
-
-    def save_images(self, images, epoch, step, path):
-        images = torch.cat(images, dim=3)
-        save_path = os.path.join(path, f"{epoch}_{step}.png")
-        save_image(tensor2image(images), save_path, normalize=True)
+                    if (it + 1) % save_step == 0:
+                        save_images(imgs)
