@@ -1,7 +1,9 @@
-dataroot: datasets/daniil.128px.cut.crop.overfit
 img_size: 128
-batch_size: 4
-epochs: 1000
+batch_size: 3
+
+dataset:
+  dataroot: datasets/overfit
+  eye_box: rect
 
 model:
   lambda_idt: 0.5
@@ -11,8 +13,8 @@ model:
   lambda_his_skin: 0.1
   lambda_his_eye: 1.0
   lambda_vgg: 0.005
-  d_conv_dim: 32
-  norm1: sn
+  d_conv_dim: 64
+  norm: sn
   vgg_path: vgg/vgg.pth
   vgg_conv_path: vgg/vgg_conv.pth
   ngf: 64
@@ -22,12 +24,15 @@ model:
   mlp_dim: 256
   n_components: 3
   input_nc: 3
-  resume: False
+
+fit:
+  epochs: 10000
+  save_step: 100
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: makeup
-  group: test scgan
-  notes: test
-  local: True
+  name: default lambdas rect
+  group: makeup_transfer_overfit
+  notes: overfit
+  local: False
