@@ -1,5 +1,5 @@
 import os
-from enum import IntEnum
+from enum import IntEnum, auto
 
 import cv2
 import numpy as np
@@ -9,6 +9,21 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 from torchvision.transforms.functional import InterpolationMode
+
+
+class EyeBox(IntEnum):
+    DILATE = auto()
+    RECTANGLE = auto()
+
+
+def determine_eye_box(eye_box):
+    eye_box = eye_box.lower()
+    if eye_box in ("d", "dilate"):
+        return EyeBox.DILATE
+    elif eye_box in ("r", "rect", "rectangle"):
+        return EyeBox.RECTANGLE
+    else:
+        raise ValueError(f"Unknown eye box {eye_box}")
 
 
 class Regions(IntEnum):
@@ -49,7 +64,6 @@ def ToTensor(pic):
     img = img.reshape(pic.size[1], pic.size[0], nchannel)
 
     # put it from HWC to CHW format
-    # yikes, this transpose takes 80% of the loading time/CPU
     img = img.permute(2, 0, 1).contiguous()
 
     if isinstance(img, torch.ByteTensor):
@@ -64,7 +78,7 @@ class SCDataset(Dataset):
         dataroot="dataset/",
         img_size=512,
         n_components=3,
-        dilate_eye=False,
+        eye_box=EyeBox.DILATE,
         dilation_kernel=np.ones((3, 3), dtype=np.uint8),
     ):
         self.dataroot = dataroot
@@ -80,7 +94,7 @@ class SCDataset(Dataset):
         self.makeup_seg_path = os.path.join(self.segments_path, "makeup")
         self.nonmakeup_seg_path = os.path.join(self.segments_path, "non-makeup")
 
-        self.dilate_eye = dilate_eye
+        self.eye_box = eye_box
         self.dilation_kernel = dilation_kernel
 
         self.img_transform = T.Compose(
@@ -128,6 +142,38 @@ class SCDataset(Dataset):
         out_segment[init_segment == part.value] = 0  # cut initial eye out
 
         return out_segment.permute(2, 0, 1).contiguous()
+
+    @staticmethod
+    def _rectangle_eye(segment, part):
+        if not (segment == part.value).any():
+            return segment
+
+        init_segment = segment.clone()
+        out_segment = segment.clone()
+
+        tmp = torch.zeros_like(out_segment)
+        tmp[out_segment == part.value] = 1
+        index_tmp = torch.nonzero(tmp, as_tuple=False)
+
+        x_index = index_tmp[:, 1]
+        y_index = index_tmp[:, 2]
+
+        out_segment[:, min(x_index) - 5 : max(x_index) + 6, min(y_index) - 5 : max(y_index) + 6] = part.value
+
+        out_segment[init_segment == part.value] = 0  # cut initial eye out
+
+        return out_segment
+
+    def rebound_eyes(self, seg):
+        for part in (Regions.LEFT_EYE, Regions.RIGHT_EYE):
+            if self.eye_box == EyeBox.DILATE:
+                seg = self._dilate_eye(seg, part, iterations=3)
+            elif self.eye_box == EyeBox.RECTANGLE:
+                seg = self._rectangle_eye(seg, part)
+            else:
+                raise ValueError(f"Unknown eye box {self.eye_box}")
+
+        return seg
 
     @staticmethod
     def _get_mask_unchanged(mask):
@@ -219,8 +265,22 @@ class SCDataset(Dataset):
         # makeup_mask_unchanged = self._get_mask_unchanged(makeup_seg)
         # nonmakeup_mask_unchanged = self._get_mask_unchanged(nonmakeup_seg)
 
-        for part in (Regions.LEFT_EYE, Regions.RIGHT_EYE):
-            makeup_seg = self._dilate_eye(makeup_seg, part, iterations=3)
+        # fig, ax = plt.subplots(2, 3)
+        #
+        # ax[0][0].imshow(nonmakeup_img.permute(1, 2, 0))
+        # ax[1][0].imshow(makeup_img.permute(1, 2, 0))
+        #
+        # ax[0][1].imshow(nonmakeup_seg.permute(1, 2, 0))
+        # ax[1][1].imshow(makeup_seg.permute(1, 2, 0))
+
+        makeup_seg = self.rebound_eyes(makeup_seg)
+        nonmakeup_seg = self.rebound_eyes(nonmakeup_seg)
+
+        # ax[0][2].imshow(nonmakeup_seg.permute(1, 2, 0))
+        # ax[1][2].imshow(makeup_seg.permute(1, 2, 0))
+        #
+        # plt.show()
+        # exit()
 
         (
             makeup_mask_lip,
