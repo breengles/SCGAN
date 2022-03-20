@@ -29,6 +29,22 @@ class Activation(Enum):
     NONE = auto()
 
 
+def determine_norm(norm: str) -> Norm:
+    norm = norm.lower()
+    if norm == "none":
+        return Norm.NONE
+    elif norm == "sn":
+        return Norm.SN
+    elif norm == "bn":
+        return Norm.BN
+    elif norm == "in":
+        return Norm.IN
+    elif norm == "ln":
+        return Norm.LN
+    elif norm == "adain":
+        return Norm.ADAIN
+
+
 def get_norm(norm, dim):
     if norm in (Norm.NONE, Norm.SN):
         return None
