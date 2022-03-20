@@ -1,14 +1,33 @@
 dataroot: datasets/daniil.128px.cut.crop.overfit
 img_size: 128
-batch_size: 2
+batch_size: 4
 epochs: 1000
-device: cuda
 
+model:
+  lambda_idt: 0.5
+  lambda_A: 10.0
+  lambda_B: 10.0
+  lambda_his_lip: 1.0
+  lambda_his_skin: 0.1
+  lambda_his_eye: 1.0
+  lambda_vgg: 0.005
+  d_conv_dim: 32
+  norm1: sn
+  vgg_path: vgg/vgg.pth
+  vgg_conv_path: vgg/vgg_conv.pth
+  ngf: 64
+  styledim: 192
+  num_downsamplings: 2
+  num_residuals: 3
+  mlp_dim: 256
+  n_components: 3
+  input_nc: 3
+  resume: False
 
 wandb:
-  project: "SCGAN"
-  entity: "makeup_science"
-  name: "makeup"
-  group: "test scgan"
-  notes: "test"
+  project: SCGAN
+  entity: makeup_science
+  name: makeup
+  group: test scgan
+  notes: test
   local: True

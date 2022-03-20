@@ -216,8 +216,8 @@ class SCDataset(Dataset):
         makeup_seg = self.seg_transform(makeup_seg)
         nonmakeup_seg = self.seg_transform(nonmakeup_seg)
 
-        makeup_mask_unchanged = self._get_mask_unchanged(makeup_seg)
-        nonmakeup_mask_unchanged = self._get_mask_unchanged(nonmakeup_seg)
+        # makeup_mask_unchanged = self._get_mask_unchanged(makeup_seg)
+        # nonmakeup_mask_unchanged = self._get_mask_unchanged(nonmakeup_seg)
 
         for part in (Regions.LEFT_EYE, Regions.RIGHT_EYE):
             makeup_seg = self._dilate_eye(makeup_seg, part, iterations=3)
@@ -262,8 +262,8 @@ class SCDataset(Dataset):
             "makeup_seg": mask_makeup,
             "nonmakeup_img": nonmakeup_img,
             "makeup_img": makeup_img,
-            "makeup_unchanged": makeup_mask_unchanged,
-            "nonmakeup_unchanged": nonmakeup_mask_unchanged,
+            # "makeup_unchanged": makeup_mask_unchanged,
+            # "nonmakeup_unchanged": nonmakeup_mask_unchanged,
             "makeup_mask_lip": makeup_mask_lip,
             "makeup_mask_skin": makeup_mask_skin,
             "makeup_mask_left_eye": makeup_mask_left_eye,

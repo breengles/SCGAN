@@ -13,6 +13,7 @@ from src.log_utils import init_wandb
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("config", type=str, help="path to config file")
+    parser.add_argument("--device", type=str, default="cuda")
 
     args = parser.parse_args()
 
@@ -27,7 +28,5 @@ if __name__ == "__main__":
     dataset = SCDataset(dataroot, img_size)
     dataloader = DataLoader(dataset, batch_size=cfg["batch_size"], shuffle=True)
 
-    model = SCGAN(img_size=img_size).to(cfg["device"])
-    model.fit(
-        dataloader, epochs=cfg["epochs"],
-    )
+    model = SCGAN(img_size=img_size, **cfg["model"]).to(args.device)
+    model.fit(dataloader, epochs=cfg["epochs"])
