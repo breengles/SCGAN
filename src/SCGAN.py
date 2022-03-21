@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 
 import torch
@@ -312,8 +313,18 @@ class SCGAN(nn.Module):
         d_lr=2e-4,
         betas=(0.5, 0.999),
         save_step=1,
-        checkpoint_root=".checkpoints/",
+        checkpoint_rate=-1,
     ):
+        print()
+        if checkpoint_rate is not None:
+            checkpoint_dir = os.path.join(wandb.run.dir, "checkpoints")
+            if checkpoint_rate == -1:
+                if epochs // 100 == 0:
+                    checkpoint_rate = 1
+                else:
+                    checkpoint_rate = epochs // 100
+
+        os.makedirs(checkpoint_dir)
         self.initialize_weights()
         self.move_to_device()
 
@@ -402,19 +413,20 @@ class SCGAN(nn.Module):
                     if (it + 1) % save_step == 0:
                         save_images(imgs)
 
-                        checkpoint_path = os.path.join(checkpoint_root, f"{epoch}_{it + 1}.pth")
+            if checkpoint_rate is not None and (epoch + 1) % checkpoint_rate == 0:
+                checkpoint_path = os.path.join(checkpoint_dir, f"{epoch + 1}.pth")
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "D_A_state_dict": self.D_A.state_dict(),
+                        "D_B_state_dict": self.D_B.state_dict(),
+                        "SCGen_state_dict": self.SCGen.state_dict(),
+                        "D_A_optim_state_dict": d_A_optim.state_dict(),
+                        "D_B_optim_state_dict": d_B_optim.state_dict(),
+                        "SCGen_optim_state_dict": g_optim.state_dict(),
+                    },
+                    checkpoint_path,
+                )
 
-                        torch.save(
-                            {
-                                "epoch": epoch,
-                                "iter": it + 1,
-                                "model_state_dict": self.state_dict(),
-                                "D_A_optim_state_dict": d_A_optim.state_dict(),
-                                "D_B_optim_state_dict": d_B_optim.state_dict(),
-                                "g_optim_state_dict": g_optim.state_dict(),
-                            },
-                            checkpoint_path,
-                        )
-
-                        wandb.log_artifact(checkpoint_path, name=f"{epoch}_{it + 1}", type="model")
+                wandb.save(checkpoint_path, base_path=checkpoint_dir, policy="end")
 

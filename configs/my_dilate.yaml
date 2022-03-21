@@ -26,7 +26,7 @@ model:
   input_nc: 3
 
 fit:
-  epochs: 10000
+  epochs: 1000
   save_step: 100
 
 wandb:
