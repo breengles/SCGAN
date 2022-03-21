@@ -1,0 +1,38 @@
+img_size: 128
+batch_size: 3
+
+dataset:
+  dataroot: datasets/overfit
+  eye_box: rect
+
+model:
+  lambda_idt: 10.0
+  lambda_A: 10.0
+  lambda_B: 10.0
+  lambda_his_lip: 1.0
+  lambda_his_skin: 0.1
+  lambda_his_eye: 1.0
+  lambda_vgg: 0.005
+  d_conv_dim: 64
+  norm: sn
+  vgg_path: vgg/vgg.pth
+  vgg_conv_path: vgg/vgg_conv.pth
+  ngf: 64
+  styledim: 192
+  num_downsamplings: 2
+  num_residuals: 3
+  mlp_dim: 256
+  n_components: 3
+  input_nc: 3
+
+fit:
+  epochs: 10000
+  save_step: 100
+
+wandb:
+  project: SCGAN
+  entity: makeup_science
+  name: idt=10 rect
+  group: makeup_transfer_overfit
+  notes: overfit
+  local: False
