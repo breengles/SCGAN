@@ -1,13 +1,15 @@
+import os
+
 import torch
 import wandb
 from torch import nn
 from torch.optim import Adam
 from tqdm.auto import trange
 
-from src.SCDis import SCDis
-from src.SCGen import SCGen
 from src.log_utils import save_images
 from src.losses import GANLoss, HistogramLoss
+from src.SCDis import SCDis
+from src.SCGen import SCGen
 from src.utils import Norm, xavier_init
 from src.vgg import VGG
 
@@ -302,7 +304,15 @@ class SCGAN(nn.Module):
         )
 
     def fit(
-        self, trainloader, epochs=1, g_step=1, g_lr=2e-4, d_lr=2e-4, betas=(0.5, 0.999), save_step=1,
+        self,
+        trainloader,
+        epochs=1,
+        g_step=1,
+        g_lr=2e-4,
+        d_lr=2e-4,
+        betas=(0.5, 0.999),
+        save_step=1,
+        checkpoint_root=".checkpoints/",
     ):
         self.initialize_weights()
         self.move_to_device()
@@ -312,7 +322,7 @@ class SCGAN(nn.Module):
         d_B_optim = Adam(self.D_B.parameters(), lr=d_lr, betas=betas)
 
         it = 0
-        for _ in trange(epochs, desc="Training"):
+        for epoch in trange(epochs, desc="Training"):
             for batch in trainloader:
                 if batch["valid"].sum() == 0:
                     continue
@@ -391,3 +401,20 @@ class SCGAN(nn.Module):
 
                     if (it + 1) % save_step == 0:
                         save_images(imgs)
+
+                        checkpoint_path = os.path.join(checkpoint_root, f"{epoch}_{it + 1}.pth")
+
+                        torch.save(
+                            {
+                                "epoch": epoch,
+                                "iter": it + 1,
+                                "model_state_dict": self.state_dict(),
+                                "D_A_optim_state_dict": d_A_optim.state_dict(),
+                                "D_B_optim_state_dict": d_B_optim.state_dict(),
+                                "g_optim_state_dict": g_optim.state_dict(),
+                            },
+                            checkpoint_path,
+                        )
+
+                        wandb.log_artifact(checkpoint_path, name=f"{epoch}_{it + 1}", type="model")
+
