@@ -3,7 +3,7 @@ batch_size: 3
 
 dataset:
   dataroot: datasets/overfit
-  eye_box: dilate
+  eye_box: rect
 
 model:
   lambda_idt: 0.5

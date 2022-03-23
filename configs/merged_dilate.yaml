@@ -3,7 +3,7 @@ batch_size: 3
 
 dataset:
   dataroot: datasets/merged.128px.cut.crop
-  eye_box: dilate
+  eye_box: rect
 
 model:
   lambda_idt: 0.5
@@ -26,8 +26,8 @@ model:
   input_nc: 3
 
 fit:
-  epochs: 1000
-  save_step: 100
+  epochs: 100
+  save_step: 10
 
 wandb:
   project: SCGAN

@@ -324,7 +324,8 @@ class SCGAN(nn.Module):
                 else:
                     checkpoint_rate = epochs // 100
 
-        os.makedirs(checkpoint_dir)
+            os.makedirs(checkpoint_dir)
+
         self.initialize_weights()
         self.move_to_device()
 

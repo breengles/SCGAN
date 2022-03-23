@@ -26,13 +26,14 @@ model:
   input_nc: 3
 
 fit:
-  epochs: 10000
+  epochs: 5000
   save_step: 100
+  checkpoint_rate: null
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: idt=10 dilate
-  group: makeup_transfer_overfit
+  name: idt=10
+  group: overfit_rect
   notes: overfit
   local: False
