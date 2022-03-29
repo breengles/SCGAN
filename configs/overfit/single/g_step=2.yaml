@@ -44,7 +44,7 @@ fit:
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: default lambdas rect
+  name: default lambdas | rect | g_step=2
   group: overfit_1example
   notes: overfit
   local: False

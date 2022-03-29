@@ -7,10 +7,10 @@ img_info:
 
 
 dataset:
-  dataroot: datasets/overfit_1example
+  dataroot: datasets/my.128px.cut.crop
 
 model:
-  lambda_idt: 2
+  lambda_idt: 0.5
   lambda_A: 10.0
   lambda_B: 10.0
   lambda_his_lip: 1.0
@@ -34,7 +34,7 @@ model:
 fit:
   epochs: 1000
   log_step: 10
-  checkpoint_rate: ~
+  checkpoint_rate: 100
   beta1: 0.5
   beta2: 0.999
   g_lr: 0.0002
@@ -44,7 +44,7 @@ fit:
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: idt=2 | rect | g_step=1
-  group: overfit_1example
+  name: default lambdas | rect | g_step=1
+  group: my
   notes: overfit
   local: False
