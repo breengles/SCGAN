@@ -1,5 +1,4 @@
 import os
-from sys import displayhook
 
 import cv2
 import numpy as np
@@ -8,7 +7,7 @@ from PIL import Image
 from scipy import ndimage
 
 from faceparsing.test import evaluate_image
-from models.models import create_model
+from src.models import create_model
 
 
 class Options:

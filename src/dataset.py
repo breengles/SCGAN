@@ -5,6 +5,7 @@ import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from torch.autograd import Variable
+from torch.utils.data import Dataset
 from torchvision.transforms import InterpolationMode
 
 
@@ -36,45 +37,47 @@ def ToTensor(pic):
         return img
 
 
-class SCDataset:
-    def __init__(self, opt):
-        self.random = None
-        self.phase = opt.phase
-        self.opt = opt
-        self.root = opt.dataroot
+class SCDataset(Dataset):
+    def __init__(
+        self, dataroot, img_size, n_components,
+    ):
+        self.dataroot = dataroot
+        self.img_size = img_size
+        self.n_components = n_components
 
-        self.dir_img = os.path.join(self.root, "images")
+        self.random = None
+
+        self.dir_img = os.path.join(self.dataroot, "images")
         self.dir_img_makeup = os.path.join(self.dir_img, "makeup")
         self.dir_img_nonmakeup = os.path.join(self.dir_img, "non-makeup")
 
-        self.dir_seg = os.path.join(self.root, "segments")
+        self.dir_seg = os.path.join(self.dataroot, "segments")
         self.dir_seg_makeup = os.path.join(self.dir_seg, "makeup")
         self.dir_seg_nonmakeup = os.path.join(self.dir_seg, "non-makeup")
-
-        self.n_components = opt.n_components
 
         self.makeup_names = os.listdir(self.dir_img_makeup)
         self.non_makeup_names = os.listdir(self.dir_img_nonmakeup)
 
         self.transform = transforms.Compose(
             [
-                transforms.Resize((opt.img_size, opt.img_size)),
+                transforms.Resize((img_size, img_size)),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
             ]
         )
 
         self.transform_mask = transforms.Compose(
-            [transforms.Resize((opt.img_size, opt.img_size), interpolation=InterpolationMode.NEAREST), ToTensor]
+            [transforms.Resize((img_size, img_size), interpolation=InterpolationMode.NEAREST), ToTensor]
         )
+
+    def __len__(self):
+        return len(self.non_makeup_names)
 
     def __getitem__(self, index):
         index = self.pick()
         makeup_name = self.makeup_names[index[0]]
         nonmakeup_name = self.non_makeup_names[index[1]]
 
-        # self.f.write(nonmakeup_name+' '+makeup_name+'\n')
-        # self.f.flush()
         makeup_path = os.path.join(self.dir_img_makeup, makeup_name)
         nonmakeup_path = os.path.join(self.dir_img_nonmakeup, nonmakeup_name)
 
@@ -93,8 +96,8 @@ class SCDataset:
         nonmakeup_img = self.transform(nonmakeup_img)
         mask_B = self.transform_mask(makeup_seg_img)  # makeup
         mask_A = self.transform_mask(nonmakeup_seg_img)  # nonmakeup
-        makeup_seg = torch.zeros([self.n_components, self.opt.img_size, self.opt.img_size], dtype=torch.float)
-        nonmakeup_seg = torch.zeros([self.n_components, self.opt.img_size, self.opt.img_size], dtype=torch.float)
+        makeup_seg = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float)
+        nonmakeup_seg = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float)
         makeup_unchanged = (
             (mask_B == 7).float()
             + (mask_B == 2).float()
@@ -178,15 +181,6 @@ class SCDataset:
         another_index = self.random.randint(0, len(self.non_makeup_names))
         return [a_index, another_index]
 
-    def __len__(self):
-        if self.opt.phase == "train":
-            return len(self.non_makeup_names)
-        elif self.opt.phase == "test":
-            return len(self.makeup_names)
-
-    def name(self):
-        return "SCDataset"
-
     def rebound_box(self, mask_A, mask_B, mask_A_face):
         mask_A = mask_A.unsqueeze(0)
         mask_B = mask_B.unsqueeze(0)
@@ -249,11 +243,8 @@ class SCDataLoader:
         self.dataset = SCDataset(opt)
         # print("Dataset loaded")
         self.dataloader = torch.utils.data.DataLoader(
-            self.dataset, batch_size=1, shuffle=not opt.serial_batches, num_workers=int(opt.nThreads)
+            self.dataset, batch_size=1, shuffle=opt.shuffle_dataloader, num_workers=int(opt.n_threads)
         )
-
-    def name(self):
-        return "SCDataLoader"
 
     def __len__(self):
         return len(self.dataset)

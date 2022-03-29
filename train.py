@@ -2,44 +2,55 @@
 
 
 import os
+from argparse import ArgumentParser
 from datetime import datetime
 
 import wandb
-from src.models import create_model
-from src.options.test_options import TestOptions
-from src.dataset import SCDataLoader
+import yaml
+from torch.utils.data import DataLoader
+
+from src.SCGAN import SCGAN
+from src.dataset import SCDataset
 
 
-def init_wandb(opt):
-    if opt.wb_local:
+def init_wandb(global_cfg):
+    cfg = global_cfg["wandb"]
+
+    if cfg["local"]:
         os.environ["WANDB_MODE"] = "offline"
     else:
         wandb.login()
 
     now = datetime.now()
     wandb.init(
-        project=opt.wb_project,
-        name=f"{opt.wb_name}:{now.hour}:{now.minute}:{now.second}-{now.day}.{now.month}.{now.year}",
-        group=opt.wb_group,
-        notes=opt.wb_notes,
-        entity=opt.wb_entitiy,
+        project=cfg["project"],
+        name=f'{cfg["name"]}:{now.hour}:{now.minute}:{now.second}-{now.day}.{now.month}.{now.year}',
+        group=cfg.get("group", None),
+        notes=cfg["notes"],
+        entity=cfg["entity"],
+        config=global_cfg,
     )
     return wandb.config
 
 
 def main():
-    opt = TestOptions().parse()
-    data_loader = SCDataLoader(opt)
-    SCGan = create_model(opt, data_loader)
+    parser = ArgumentParser()
+    parser.add_argument("config", type=str)
+    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--local", action="store_true")
+    args = parser.parse_args()
 
-    wb_cfg = init_wandb(opt)
+    with open(args.config, "r") as cfg_file:
+        cfg = yaml.safe_load(cfg_file)
 
-    if opt.phase == "train":
-        SCGan.train()
-    elif opt.phase == "test":
-        SCGan.test()
+    cfg["wandb"]["local"] = args.local
+    cfg = init_wandb(cfg)
 
-    print("Finished!!!")
+    dataset = SCDataset(**cfg["img_info"], **cfg["dataset"])
+    dataloader = DataLoader(dataset, batch_size=cfg["batch_size"], shuffle=True)
+
+    model = SCGAN(phase=cfg["phase"], **cfg["img_info"], **cfg["model"]).to(args.device)
+    model.fit(dataloader, **cfg["fit"])
 
 
 if __name__ == "__main__":

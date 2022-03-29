@@ -39,7 +39,7 @@ fit:
   beta2: 0.999
   g_lr: 0.0002
   d_lr: 0.0002
-  g_step: 2
+  g_step: 5
 
 wandb:
   project: SCGAN
