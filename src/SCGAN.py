@@ -1,12 +1,12 @@
 import os
 import os.path as osp
-from datetime import datetime
 
 import torch
-from SCDataset.SCDataset import SCDataLoader
+from tqdm.auto import trange
+import wandb
 from SCDataset.transfer_dataset import TransferDataLoader
 from torch.autograd import Variable
-from torchvision.utils import save_image
+from torchvision.utils import make_grid, save_image
 
 from models.SCGen import SCGen
 
@@ -49,7 +49,7 @@ class SCGAN(BaseModel):
         self.lambda_his_eye = opt.lambda_his_eye
         self.lambda_vgg = opt.lambda_vgg
         self.snapshot_step = opt.snapshot_step
-        self.save_step = opt.save_step
+        # self.save_step = opt.save_step
         self.log_step = opt.log_step
         self.result_path = opt.save_path
         self.snapshot_path = opt.snapshot_path
@@ -71,6 +71,7 @@ class SCGAN(BaseModel):
             opt.phase,
             ispartial=opt.partial,
             isinterpolation=opt.interpolation,
+            vgg_root=opt.vgg_root,
         )
         self.D_A = SCDis(self.img_size, self.d_conv_dim, self.d_repeat_num, self.norm1)
         self.D_B = SCDis(self.img_size, self.d_conv_dim, self.d_repeat_num, self.norm1)
@@ -79,7 +80,7 @@ class SCGAN(BaseModel):
         self.D_B.apply(net_utils.weights_init_xavier)
         self.SCGen.apply(net_utils.weights_init_xavier)
 
-        self.SCGen.PSEnc.load_vgg()
+        self.SCGen.PSEnc.load_vgg(os.path.join(opt.vgg_root, "vgg.pth"))
 
         self.load_checkpoint()
         self.criterionL1 = torch.nn.L1Loss()
@@ -89,7 +90,7 @@ class SCGAN(BaseModel):
         self.vgg = VGG()
 
         if self.phase == "train":
-            self.vgg.load_state_dict(torch.load("vgg_conv.pth"))
+            self.vgg.load_state_dict(torch.load(os.path.join(opt.vgg_root, "vgg_conv.pth")))
 
         self.criterionHis = HistogramLoss()
 
@@ -109,9 +110,6 @@ class SCGAN(BaseModel):
         self.criterionL2.cuda()
         self.D_A.cuda()
         self.D_B.cuda()
-
-        self.init_time = datetime.now()
-        self.logfile_initialized = False
 
         # print("---------- Networks initialized -------------")
         # net_utils.print_network(self.SCGen)
@@ -159,13 +157,15 @@ class SCGAN(BaseModel):
         self.iters_per_epoch = len(self.dataloader)
         g_lr = self.g_lr
         d_lr = self.d_lr
-        start = 0
 
-        for self.e in range(start, self.num_epochs):
-            for self.i, data in enumerate(self.dataloader):
+        self.i = 0
+        for self.e in trange(self.num_epochs, desc="Training..."):
+            for data in self.dataloader:
                 if len(data) == 0:
                     print("No eyes!!")
                     continue
+
+                self.i += 1
 
                 self.set_input(data)
 
@@ -228,9 +228,6 @@ class SCGAN(BaseModel):
 
                 # ================== Train G ================== #
                 if (self.i + 1) % self.g_step == 0:
-                    # identity loss
-                    assert self.lambda_idt > 0
-
                     # G should be identity if ref_B or org_A is fed
                     idt_A = self.SCGen(makeup, makeup_seg, makeup, makeup_seg, makeup, makeup_seg)
                     idt_B = self.SCGen(nonmakeup, nonmakeup_seg, nonmakeup, nonmakeup_seg, nonmakeup, nonmakeup_seg)
@@ -402,14 +399,10 @@ class SCGAN(BaseModel):
 
                     # Print out log info
                 if (self.i + 1) % self.log_step == 0:
-                    self.log_terminal()
-
-                # save the images
-                if (self.i) % self.save_step == 0:
-                    print("Saving middle output...")
-                    self.imgs_save([nonmakeup, makeup, fake_makeup])
-
-                # Save model checkpoints
+                    # self.log_terminal()
+                    wandb.log(self.loss)
+                    wandb_save_images([nonmakeup, makeup, fake_makeup])
+                    # self.imgs_save([nonmakeup, makeup, fake_makeup])
 
             # Decay learning rate
             if (self.e + 1) % self.snapshot_step == 0:
@@ -440,37 +433,15 @@ class SCGAN(BaseModel):
             save_image(self.de_norm(imgs_list.data), save_path, normalize=True)
 
         if self.phase == "train":
-            img_train_list = torch.cat(imgs_list, dim=3)
-            if not osp.exists(self.result_path):
-                os.makedirs(self.result_path)
-
-            save_path = os.path.join(self.result_path, "train/" + str(self.e) + "_" + str(self.i) + ".jpg")
-            save_image(self.de_norm(img_train_list.data), save_path, normalize=True)
+            save_images(imgs_list)
 
     def log_terminal(self):
-        if not self.logfile_initialized:
-            self.init_logfile()
-
         log = f" Epoch [{self.e + 1}/{self.num_epochs}], Iter [{self.i + 1}/{self.iters_per_epoch}]"
 
         for tag, value in self.loss.items():
             log += f", {tag}: {value:.4f}"
 
         print(log)
-
-        with open(f"log/{self.init_time}.csv", "a+") as logfile:
-            logfile.write(f"{self.e + 1},{self.i + 1}")
-            for _, value in self.loss.items():
-                logfile.write(f",{value}")
-            logfile.write("\n")
-
-    def init_logfile(self):
-        self.logfile_initialized = True
-        with open(f"log/{self.init_time}.csv", "a+") as logfile:
-            logfile.write(f"epoch,iter")
-            for tag, _ in self.loss.items():
-                logfile.write(f",{tag}")
-            logfile.write("\n")
 
     def save_models(self):
         if not osp.exists(self.snapshot_path):
@@ -631,3 +602,14 @@ class SCGAN(BaseModel):
         removal = self.de_norm(transfered[2]).squeeze().cpu().numpy().transpose(1, 2, 0)
 
         return source, ref, transfer, removal
+
+
+def tensor2image(x):
+    return (0.5 * (x + 1)).clip(0, 1)
+
+
+def wandb_save_images(images):
+    imgs = tensor2image(torch.cat(images, dim=0))
+    grid = make_grid(imgs, nrow=imgs.shape[0] // 3, normalize=True)
+    grid = wandb.Image(grid, caption="top: src, mid: ref, bot: transfer")
+    wandb.log({"transfer": grid})

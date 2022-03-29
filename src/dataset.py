@@ -1,12 +1,11 @@
+import os.path
+
 import numpy as np
-import PIL
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from torch.autograd import Variable
-from torch.utils.data import DataLoader
 from torchvision.transforms import InterpolationMode
-import matplotlib.pyplot as plt
 
 
 def ToTensor(pic):
@@ -37,17 +36,25 @@ def ToTensor(pic):
         return img
 
 
-class TransferDataset:
-    def __init__(self, source_path, reference_path, source_seg_path, reference_seg_path, opt):
+class SCDataset:
+    def __init__(self, opt):
         self.random = None
+        self.phase = opt.phase
         self.opt = opt
+        self.root = opt.dataroot
+
+        self.dir_img = os.path.join(self.root, "images")
+        self.dir_img_makeup = os.path.join(self.dir_img, "makeup")
+        self.dir_img_nonmakeup = os.path.join(self.dir_img, "non-makeup")
+
+        self.dir_seg = os.path.join(self.root, "segments")
+        self.dir_seg_makeup = os.path.join(self.dir_seg, "makeup")
+        self.dir_seg_nonmakeup = os.path.join(self.dir_seg, "non-makeup")
+
         self.n_components = opt.n_components
 
-        self.source_path = source_path
-        self.reference_path = reference_path
-
-        self.source_seg_path = source_seg_path
-        self.reference_seg_path = reference_seg_path
+        self.makeup_names = os.listdir(self.dir_img_makeup)
+        self.non_makeup_names = os.listdir(self.dir_img_nonmakeup)
 
         self.transform = transforms.Compose(
             [
@@ -62,18 +69,30 @@ class TransferDataset:
         )
 
     def __getitem__(self, index):
-        source_img = self.transform(Image.open(self.source_path).convert("RGB"))
-        reference_img = self.transform(Image.open(self.reference_path).convert("RGB"))
+        index = self.pick()
+        makeup_name = self.makeup_names[index[0]]
+        nonmakeup_name = self.non_makeup_names[index[1]]
 
-        source_seg_img = Image.open(self.source_seg_path)
-        reference_seg_img = Image.open(self.reference_seg_path)
+        # self.f.write(nonmakeup_name+' '+makeup_name+'\n')
+        # self.f.flush()
+        makeup_path = os.path.join(self.dir_img_makeup, makeup_name)
+        nonmakeup_path = os.path.join(self.dir_img_nonmakeup, nonmakeup_name)
 
-        mask_A = self.transform_mask(source_seg_img)  # source
-        mask_B = self.transform_mask(reference_seg_img)  # reference
+        makeup_img = Image.open(makeup_path).convert("RGB")
+        nonmakeup_img = Image.open(nonmakeup_path).convert("RGB")
 
-        # plt.imshow(mask_A.permute(1, 2, 0))
-        # plt.show()
-
+        makeup_seg_img = Image.open(os.path.join(self.dir_seg_makeup, makeup_name))
+        nonmakeup_seg_img = Image.open(os.path.join(self.dir_seg_nonmakeup, nonmakeup_name))
+        # makeup_img = makeup_img.transpose(Image.FLIP_LEFT_RIGHT)
+        # makeup_seg_img = makeup_seg_img.transpose(Image.FLIP_LEFT_RIGHT)
+        # nonmakeup_img=nonmakeup_img.rotate(40)
+        # nonmakeup_seg_img=nonmakeup_seg_img.rotate(40)
+        # makeup_img=makeup_img.rotate(90)
+        # makeup_seg_img=makeup_seg_img.rotate(90)
+        makeup_img = self.transform(makeup_img)
+        nonmakeup_img = self.transform(nonmakeup_img)
+        mask_B = self.transform_mask(makeup_seg_img)  # makeup
+        mask_A = self.transform_mask(nonmakeup_seg_img)  # nonmakeup
         makeup_seg = torch.zeros([self.n_components, self.opt.img_size, self.opt.img_size], dtype=torch.float)
         nonmakeup_seg = torch.zeros([self.n_components, self.opt.img_size, self.opt.img_size], dtype=torch.float)
         makeup_unchanged = (
@@ -90,15 +109,10 @@ class TransferDataset:
             + (mask_A == 1).float()
             + (mask_A == 11).float()
         )
-
-        # plt.imshow(makeup_unchanged.permute(1, 2, 0))
-        # plt.show()
-        # plt.imshow(nonmakeup_unchanged.permute(1, 2, 0))
-        # plt.show()
-
         mask_A_lip = (mask_A == 9).float() + (mask_A == 13).float()
         mask_B_lip = (mask_B == 9).float() + (mask_B == 13).float()
         mask_A_lip, mask_B_lip, index_A_lip, index_B_lip = self.mask_preprocess(mask_A_lip, mask_B_lip)
+
         makeup_seg[0] = mask_B_lip
         nonmakeup_seg[0] = mask_A_lip
         mask_A_skin = (mask_A == 4).float() + (mask_A == 8).float() + (mask_A == 10).float()
@@ -116,36 +130,20 @@ class TransferDataset:
         if not ((mask_B_eye_left > 0).any() and (mask_B_eye_right > 0).any()):
             return {}
         # mask_A_eye_left, mask_A_eye_right = self.rebound_box(mask_A_eye_left, mask_A_eye_right, mask_A_face)
-
-        # plt.imshow((mask_B_eye_left + mask_B_eye_right).permute(1, 2, 0))
-        # plt.title("Before rebound")
-        # plt.show()
-
-        # mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
-
-        # plt.imshow((mask_B_eye_left + mask_B_eye_right).permute(1, 2, 0))
-        # plt.title("rebound")
-        # plt.show()
-
+        mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
         mask_A_eye_left, mask_B_eye_left, index_A_eye_left, index_B_eye_left = self.mask_preprocess(
             mask_A_eye_left, mask_B_eye_left
         )
         mask_A_eye_right, mask_B_eye_right, index_A_eye_right, index_B_eye_right = self.mask_preprocess(
             mask_A_eye_right, mask_B_eye_right
         )
-
-        nonmakeup_seg[2] = mask_A_eye_left + mask_A_eye_right
         makeup_seg[2] = mask_B_eye_left + mask_B_eye_right
-
-        plt.imshow(makeup_seg[2])
-        plt.show()
-        plt.imshow(nonmakeup_seg[2])
-        plt.show()
+        nonmakeup_seg[2] = mask_A_eye_left + mask_A_eye_right
 
         mask_A = {}
         mask_A["mask_A_eye_left"] = mask_A_eye_left
         mask_A["mask_A_eye_right"] = mask_A_eye_right
-        mask_A["index_A_eye_left"] = index_A_eye_left
+        mask_A["index_A_eye_left"] = index_A_eye_left  # проблемы с индексами, если хотим батч > 1
         mask_A["index_A_eye_right"] = index_A_eye_right
         mask_A["mask_A_skin"] = mask_A_skin
         mask_A["index_A_skin"] = index_A_skin
@@ -161,22 +159,33 @@ class TransferDataset:
         mask_B["index_B_skin"] = index_B_skin
         mask_B["mask_B_lip"] = mask_B_lip
         mask_B["index_B_lip"] = index_B_lip
+
         return {
             "nonmakeup_seg": nonmakeup_seg,
             "makeup_seg": makeup_seg,
-            "nonmakeup_img": source_img,
-            "makeup_img": reference_img,
+            "nonmakeup_img": nonmakeup_img,
+            "makeup_img": makeup_img,
             "mask_A": mask_A,
             "mask_B": mask_B,
             "makeup_unchanged": makeup_unchanged,
             "nonmakeup_unchanged": nonmakeup_unchanged,
         }
 
+    def pick(self):
+        if self.random is None:
+            self.random = np.random.RandomState(np.random.seed())
+        a_index = self.random.randint(0, len(self.makeup_names))
+        another_index = self.random.randint(0, len(self.non_makeup_names))
+        return [a_index, another_index]
+
     def __len__(self):
-        return 1
+        if self.opt.phase == "train":
+            return len(self.non_makeup_names)
+        elif self.opt.phase == "test":
+            return len(self.makeup_names)
 
     def name(self):
-        return "TransferDataset"
+        return "SCDataset"
 
     def rebound_box(self, mask_A, mask_B, mask_A_face):
         mask_A = mask_A.unsqueeze(0)
@@ -191,46 +200,19 @@ class TransferDataset:
         y_B_index = index_tmp[:, 3]
         mask_A_temp = mask_A.copy_(mask_A)
         mask_B_temp = mask_B.copy_(mask_B)
-
-        A_limits = (0, 0, 0, 0)
-        B_limits = (0, 0, 0, 0)
-
         mask_A_temp[
-            :,
-            :,
-            min(x_A_index) - A_limits[0] : max(x_A_index) + A_limits[1],
-            min(y_A_index) - A_limits[2] : max(y_A_index) + A_limits[3],
-        ] = mask_A_face[
-            :,
-            :,
-            min(x_A_index) - A_limits[0] : max(x_A_index) + A_limits[1],
-            min(y_A_index) - A_limits[2] : max(y_A_index) + A_limits[3],
-        ]
+            :, :, min(x_A_index) - 5 : max(x_A_index) + 6, min(y_A_index) - 5 : max(y_A_index) + 6
+        ] = mask_A_face[:, :, min(x_A_index) - 5 : max(x_A_index) + 6, min(y_A_index) - 5 : max(y_A_index) + 6]
         mask_B_temp[
-            :,
-            :,
-            min(x_B_index) - B_limits[0] : max(x_B_index) + B_limits[1],
-            min(y_B_index) - B_limits[2] : max(y_B_index) + B_limits[3],
-        ] = mask_A_face[
-            :,
-            :,
-            min(x_B_index) - B_limits[0] : max(x_B_index) + B_limits[1],
-            min(y_B_index) - B_limits[2] : max(y_B_index) + B_limits[3],
-        ]
+            :, :, min(x_B_index) - 5 : max(x_B_index) + 6, min(y_B_index) - 5 : max(y_B_index) + 6
+        ] = mask_A_face[:, :, min(x_B_index) - 5 : max(x_B_index) + 6, min(y_B_index) - 5 : max(y_B_index) + 6]
+        # mask_A_temp = self.to_var(mask_A_temp, requires_grad=False)
+        # mask_B_temp = self.to_var(mask_B_temp, requires_grad=False)
         mask_A_temp = mask_A_temp.squeeze(0)
         mask_A = mask_A.squeeze(0)
         mask_B = mask_B.squeeze(0)
         mask_A_face = mask_A_face.squeeze(0)
         mask_B_temp = mask_B_temp.squeeze(0)
-
-        # plt.imshow(mask_A.cpu().numpy().transpose(1, 2, 0).astype(np.uint8))
-        # plt.show()
-
-        # plt.imshow(mask_A_temp.cpu().numpy().transpose(1, 2, 0).astype(np.uint8))
-        # plt.show()
-
-        # plt.imshow(mask_B_temp.cpu().numpy().transpose(1, 2, 0).astype(np.uint8))
-        # plt.show()
 
         return mask_A_temp, mask_B_temp
 
@@ -244,6 +226,8 @@ class TransferDataset:
         index_tmp = torch.nonzero(mask_B, as_tuple=False)
         x_B_index = index_tmp[:, 2]
         y_B_index = index_tmp[:, 3]
+        # mask_A = self.to_var(mask_A, requires_grad=False)
+        # mask_B = self.to_var(mask_B, requires_grad=False)
         index = [x_A_index, y_A_index, x_B_index, y_B_index]
         index_2 = [x_B_index, y_B_index, x_A_index, y_A_index]
         mask_A = mask_A.squeeze(0)
@@ -260,15 +244,16 @@ class TransferDataset:
             return Variable(x)
 
 
-class TransferDataLoader:
-    def __init__(self, source_path, reference_path, source_seg_path, reference_seg_path, opt):
-        self.dataset = TransferDataset(source_path, reference_path, source_seg_path, reference_seg_path, opt)
-        self.dataloader = DataLoader(
-            self.dataset, batch_size=opt.batchSize, shuffle=not opt.serial_batches, num_workers=int(opt.nThreads)
+class SCDataLoader:
+    def __init__(self, opt):
+        self.dataset = SCDataset(opt)
+        # print("Dataset loaded")
+        self.dataloader = torch.utils.data.DataLoader(
+            self.dataset, batch_size=1, shuffle=not opt.serial_batches, num_workers=int(opt.nThreads)
         )
 
     def name(self):
-        return "TransferDataLoader"
+        return "SCDataLoader"
 
     def __len__(self):
         return len(self.dataset)

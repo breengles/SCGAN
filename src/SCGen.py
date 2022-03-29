@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,6 +21,7 @@ class SCGen(nn.Module):
         pad_type="reflect",
         ispartial=False,
         isinterpolation=False,
+        vgg_root="vgg",
     ):
         super(SCGen, self).__init__()
         self.phase = phase
@@ -34,6 +37,7 @@ class SCGen(nn.Module):
             phase=self.phase,
             ispartial=self.ispartial,
             isinterpolation=self.isinterpolation,
+            vgg_root=vgg_root,
         )
         self.FIEnc = FaceEncoder(n_downsample, n_res, input_dim, dim, "in", activ, pad_type=pad_type)
         self.MFDec = MakeupFuseDecoder(
@@ -187,14 +191,16 @@ class SCGen(nn.Module):
 
 
 class PartStyleEncoder(nn.Module):
-    def __init__(self, input_dim, dim, style_dim, norm, activ, pad_type, phase, ispartial, isinterpolation):
+    def __init__(
+        self, input_dim, dim, style_dim, norm, activ, pad_type, phase, ispartial, isinterpolation, vgg_root="vgg"
+    ):
         super(PartStyleEncoder, self).__init__()
         self.phase = phase
         self.isinterpolation = isinterpolation
         self.ispartial = ispartial
         self.vgg = None
 
-        self.load_vgg()
+        self.load_vgg(os.path.join(vgg_root, "vgg.pth"))
 
         for param in self.vgg.parameters():
             param.requires_grad_(False)
