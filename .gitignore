@@ -4,7 +4,7 @@ __pycache__/
 .python-version
 
 checkpoints/
-G.original.pth
+checkpoints/G.original.pth
 StyleGAN/
 
 vgg/vgg_conv.pth

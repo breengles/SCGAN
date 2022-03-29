@@ -3,14 +3,14 @@ batch_size: 3
 
 dataset:
   dataroot: datasets/overfit
-  eye_box: rect
+  eye_box: dilate
 
 model:
-  lambda_idt: 1.0
-  lambda_A: 1.0
-  lambda_B: 1.0
+  lambda_idt: 10.0
+  lambda_A: 10.0
+  lambda_B: 10.0
   lambda_his_lip: 1.0
-  lambda_his_skin: 1.0
+  lambda_his_skin: 0.1
   lambda_his_eye: 1.0
   lambda_vgg: 0.005
   d_conv_dim: 64
@@ -26,13 +26,13 @@ model:
   input_nc: 3
 
 fit:
-  epochs: 10000
+  epochs: 5000
   save_step: 100
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: equal lambdas rect
-  group: makeup_transfer_overfit
+  name: idt=10 dilate
+  group: overfit_dilate
   notes: overfit
   local: False

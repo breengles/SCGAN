@@ -37,6 +37,7 @@ class SCGAN(nn.Module):
         mlp_dim=256,
         n_components=3,
         input_nc=3,
+        gen_pretrained=None,
     ):
         super().__init__()
         self.img_size = img_size
@@ -55,6 +56,7 @@ class SCGAN(nn.Module):
             "hist_eye": lambda_his_eye,
             "vgg": lambda_vgg,
         }
+        self.gen_pretrained = gen_pretrained
 
         self.layers = ["r41"]
 
@@ -108,6 +110,9 @@ class SCGAN(nn.Module):
         self.vgg.load_state_dict(torch.load(self.vgg_conv_path))
         self.SCGen.PSEnc.load_vgg(self.vgg_path)
 
+        if self.gen_pretrained is not None:
+            self.SCGen.load_state_dict(torch.load(self.gen_pretrained))
+
         # if self.resume:
         #     G_path = os.path.join(self.snapshot_path, "G.pth")
         #     D_A_path = os.path.join(self.snapshot_path, "D_A.pth")
@@ -142,7 +147,7 @@ class SCGAN(nn.Module):
         loss_real = self.criterionGAN(out, 1.0)
 
         with torch.no_grad():
-            fake = self.SCGen(img_B, seg_B, img_A)
+            fake = self.SCGen(img_A, img_B, seg_B)
 
         out = disc(fake)
         loss_fake = self.criterionGAN(out, 0.0)
@@ -150,8 +155,8 @@ class SCGAN(nn.Module):
         return 0.5 * (loss_real.mean() + loss_fake.mean())
 
     def calc_idt_loss(self, makeup_img, makeup_seg, nonmakeup_img, nonmakeup_seg):
-        idt_A = self.SCGen(makeup_img, makeup_seg, nonmakeup_img)
-        idt_B = self.SCGen(nonmakeup_img, nonmakeup_seg, makeup_img)
+        idt_A = self.SCGen(makeup_img, nonmakeup_img, nonmakeup_seg)
+        idt_B = self.SCGen(nonmakeup_img, makeup_img, makeup_seg)
 
         idt_A_loss = self.criterionL2(idt_A, makeup_img) * self.lambdas["A"] * self.lambdas["idt"]
         idt_B_loss = self.criterionL2(idt_B, nonmakeup_img) * self.lambdas["B"] * self.lambdas["idt"]
@@ -223,8 +228,8 @@ class SCGAN(nn.Module):
         return hist_loss_A, hist_loss_B
 
     def calc_cycle_loss(self, fake_makeup, fake_nonmakeup, makeup_img, nonmakeup_img, makeup_seg, nonmakeup_seg):
-        rec_A = self.SCGen(fake_makeup, nonmakeup_seg, nonmakeup_img)
-        rec_B = self.SCGen(fake_nonmakeup, makeup_seg, makeup_img)
+        rec_A = self.SCGen(fake_makeup, nonmakeup_img, nonmakeup_seg)
+        rec_B = self.SCGen(fake_nonmakeup, makeup_img, makeup_seg)
 
         loss_cycle_A = self.criterionL1(rec_A, nonmakeup_img) * self.lambdas["A"]
         loss_cycle_B = self.criterionL1(rec_B, makeup_img) * self.lambdas["B"]
@@ -265,11 +270,11 @@ class SCGAN(nn.Module):
         nonmakeup_mask_left_eye,
         nonmakeup_mask_right_eye,
     ):
-        fake_makeup = self.SCGen(nonmakeup_img, nonmakeup_seg, makeup_img)
+        fake_makeup = self.SCGen(nonmakeup_img, makeup_img, makeup_seg)
         pred = self.D_A(fake_makeup)
         adv_loss_A = self.criterionGAN(pred, 1.0)
 
-        fake_nonmakeup = self.SCGen(makeup_img, makeup_seg, nonmakeup_img)
+        fake_nonmakeup = self.SCGen(makeup_img, nonmakeup_img, nonmakeup_seg)
         pred = self.D_B(fake_nonmakeup)
         adv_loss_B = self.criterionGAN(pred, 1.0)
 
@@ -313,18 +318,20 @@ class SCGAN(nn.Module):
         d_lr=2e-4,
         betas=(0.5, 0.999),
         save_step=1,
-        checkpoint_rate=-1,
+        checkpoint_rate=None,
     ):
-        print()
+        checkpoint_dir = os.path.join(wandb.run.dir, "checkpoints")
+        os.makedirs(checkpoint_dir)
+
         if checkpoint_rate is not None:
-            checkpoint_dir = os.path.join(wandb.run.dir, "checkpoints")
             if checkpoint_rate == -1:
-                if epochs // 100 == 0:
+                if epochs // 10 == 0:
                     checkpoint_rate = 1
                 else:
-                    checkpoint_rate = epochs // 100
-
-            os.makedirs(checkpoint_dir)
+                    checkpoint_rate = epochs // 10
+            print(f"Checkpoints will be saved every {checkpoint_rate} epoch")
+        else:
+            print("Checkpoints will not be saved!")
 
         self.initialize_weights()
         self.move_to_device()
@@ -422,12 +429,16 @@ class SCGAN(nn.Module):
                         "D_A_state_dict": self.D_A.state_dict(),
                         "D_B_state_dict": self.D_B.state_dict(),
                         "SCGen_state_dict": self.SCGen.state_dict(),
-                        "D_A_optim_state_dict": d_A_optim.state_dict(),
-                        "D_B_optim_state_dict": d_B_optim.state_dict(),
-                        "SCGen_optim_state_dict": g_optim.state_dict(),
+                        # "D_A_optim_state_dict": d_A_optim.state_dict(),
+                        # "D_B_optim_state_dict": d_B_optim.state_dict(),
+                        # "SCGen_optim_state_dict": g_optim.state_dict(),
                     },
                     checkpoint_path,
                 )
 
                 wandb.save(checkpoint_path, base_path=checkpoint_dir, policy="end")
 
+
+class Generator(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()

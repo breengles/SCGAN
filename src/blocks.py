@@ -4,7 +4,7 @@ from torch.nn.utils.parametrizations import spectral_norm
 from src.utils import Activation, Norm, get_activation, get_norm
 
 
-class FCBlock(nn.Module):
+class linearBlock(nn.Module):
     def __init__(self, inp_dim, out_dim, bias=True, norm=Norm.NONE, activation=Activation.RELU):
         super().__init__()
 
@@ -71,25 +71,25 @@ class ConvBlock(nn.Module):
         return out
 
 
-class ResidualBlock(nn.Module):
+class ResBlock(nn.Module):
     def __init__(self, dim, norm=Norm.IN, activation=Activation.RELU, padding_mode="zeros", bias=True):
         super().__init__()
 
-        self.main = nn.Sequential(
-            ConvBlock(dim, dim, 3, 1, 1, padding_mode, bias, norm=norm, activation=activation),
-            ConvBlock(dim, dim, 3, 1, 1, padding_mode, bias),
+        self.model = nn.Sequential(
+            ConvBlock(dim, dim, 3, 1, 1, padding_mode=padding_mode, bias=bias, norm=norm, activation=activation),
+            ConvBlock(dim, dim, 3, 1, 1, padding_mode=padding_mode, bias=bias, norm=norm, activation=Activation.NONE),
         )
 
     def forward(self, x):
-        return self.main(x)
+        return self.model(x)
 
 
-class ResidualBlocks(nn.Module):
+class ResBlocks(nn.Module):
     def __init__(self, num_blocks, dim, norm=Norm.IN, activation=Activation.RELU, padding_mode="zeros", bias=True):
         super().__init__()
 
-        blocks = [ResidualBlock(dim, norm, activation, padding_mode, bias) for _ in range(num_blocks)]
-        self.main = nn.Sequential(*blocks)
+        blocks = [ResBlock(dim, norm, activation, padding_mode, bias) for _ in range(num_blocks)]
+        self.model = nn.Sequential(*blocks)
 
     def forward(self, x):
-        return self.main(x)
+        return self.model(x)

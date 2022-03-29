@@ -1,17 +1,16 @@
-phase: eval
-img_size: 256
-batch_size: 1
+img_size: 128
+batch_size: 3
 
 dataset:
   dataroot: datasets/overfit
   eye_box: dilate
 
 model:
-  lambda_idt: 0.5
-  lambda_A: 10.0
-  lambda_B: 10.0
+  lambda_idt: 1.0
+  lambda_A: 1.0
+  lambda_B: 1.0
   lambda_his_lip: 1.0
-  lambda_his_skin: 0.1
+  lambda_his_skin: 1.0
   lambda_his_eye: 1.0
   lambda_vgg: 0.005
   d_conv_dim: 64
@@ -25,16 +24,15 @@ model:
   mlp_dim: 256
   n_components: 3
   input_nc: 3
-  gen_pretrained: checkpoints/G.original.pth
 
 fit:
-  epochs: 10
-  save_step: 1
+  epochs: 5000
+  save_step: 100
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: test
-  group: test_gen_pretrained
-  notes: ~
+  name: equal lambdas dilate
+  group: overfit_dilate
+  notes: overfit
   local: False

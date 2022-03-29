@@ -26,13 +26,13 @@ model:
   input_nc: 3
 
 fit:
-  epochs: 10000
+  epochs: 5000
   save_step: 100
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: equal lambdas dilate
-  group: makeup_transfer_overfit
+  name: equal lambdas rect
+  group: overfit_rect
   notes: overfit
   local: False

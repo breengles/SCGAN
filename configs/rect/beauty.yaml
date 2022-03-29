@@ -2,7 +2,7 @@ img_size: 128
 batch_size: 3
 
 dataset:
-  dataroot: datasets/my.128px.cut.crop
+  dataroot: datasets/beautygan.128px.cut.crop
   eye_box: rect
 
 model:
@@ -28,11 +28,12 @@ model:
 fit:
   epochs: 100
   save_step: 10
+  checkpoint_rate: 20
 
 wandb:
   project: SCGAN
   entity: makeup_science
   name: default lambdas dilate
-  group: my_dataset
+  group: beautygan
   notes: overfit
   local: False

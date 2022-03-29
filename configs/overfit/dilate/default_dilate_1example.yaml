@@ -1,9 +1,8 @@
-phase: eval
-img_size: 256
+img_size: 128
 batch_size: 1
 
 dataset:
-  dataroot: datasets/overfit
+  dataroot: datasets/overfit_1example
   eye_box: dilate
 
 model:
@@ -25,16 +24,15 @@ model:
   mlp_dim: 256
   n_components: 3
   input_nc: 3
-  gen_pretrained: checkpoints/G.original.pth
 
 fit:
-  epochs: 10
-  save_step: 1
+  epochs: 5000
+  save_step: 100
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: test
-  group: test_gen_pretrained
-  notes: ~
+  name: default lambdas dilate
+  group: overfit_1example
+  notes: overfit
   local: False

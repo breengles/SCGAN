@@ -1,21 +1,17 @@
 #!/usr/bin/env bash
 
 
-for cfg in configs/idt_hypertuning/dilate/*
-do
-  ./train.py "$cfg" --local
-done
+./train.py configs/overfit/dilate/default_dilate_1example.yaml --local
+./train.py configs/overfit/rect/default_rect_1example.yaml --local
 
 
-for cfg in configs/idt_hypertuning/rect/*
-do
-  ./train.py "$cfg" --local
-done
+./train.py configs/dilate/beauty.yaml --local
+./train.py configs/dilate/my.yaml --local
+./train.py configs/dilate/merged.yaml --local
 
+./train.py configs/rect/beauty.yaml --local
+./train.py configs/rect/my.yaml --local
+./train.py configs/rect/merged.yaml --local
 
-
-# ./train.py configs/beauty_dilate.yaml --local
-# ./train.py configs/my_dilate.yaml --local
-# ./train.py configs/merged_dilate.yaml --local
 
 wandb sync wandb/offline-*

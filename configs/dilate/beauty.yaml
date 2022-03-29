@@ -3,7 +3,7 @@ batch_size: 3
 
 dataset:
   dataroot: datasets/beautygan.128px.cut.crop
-  eye_box: rect
+  eye_box: dilate
 
 model:
   lambda_idt: 0.5
@@ -28,6 +28,7 @@ model:
 fit:
   epochs: 100
   save_step: 10
+  checkpoint_rate: 20
 
 wandb:
   project: SCGAN
