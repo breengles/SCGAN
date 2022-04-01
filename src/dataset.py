@@ -1,6 +1,7 @@
 import os.path
 from enum import IntEnum
 
+import cv2
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -84,6 +85,7 @@ class SCDataset(Dataset):
         )
 
         self.flip_proba = 0.5
+        self.dilation_kernel = np.ones((3, 3), dtype=np.uint8)
 
     def __len__(self):
         return len(self.non_makeup_names)
@@ -210,36 +212,62 @@ class SCDataset(Dataset):
             "nonmakeup_unchanged": nonmakeup_unchanged,
         }
 
-    def rectangle_box(self, mask_A, mask_B, mask_A_face):
-        mask_A = mask_A.unsqueeze(0)
-        mask_B = mask_B.unsqueeze(0)
-        mask_A_face = mask_A_face.unsqueeze(0)
+    def rectangle_box(self, mask_right_eye, mask_left_eye, mask_face):
+        mask_right_eye = mask_right_eye.unsqueeze(0)
+        mask_left_eye = mask_left_eye.unsqueeze(0)
+        mask_face = mask_face.unsqueeze(0)
 
-        index_tmp = torch.nonzero(mask_A, as_tuple=False)
+        index_tmp = torch.nonzero(mask_right_eye, as_tuple=False)
         x_A_index = index_tmp[:, 2]
         y_A_index = index_tmp[:, 3]
-        index_tmp = torch.nonzero(mask_B, as_tuple=False)
+
+        index_tmp = torch.nonzero(mask_left_eye, as_tuple=False)
         x_B_index = index_tmp[:, 2]
         y_B_index = index_tmp[:, 3]
-        mask_A_temp = mask_A.copy_(mask_A)
-        mask_B_temp = mask_B.copy_(mask_B)
-        mask_A_temp[
+
+        mask_right_eye_temp = mask_right_eye.copy_(mask_right_eye)
+        mask_left_eye_temp = mask_left_eye.copy_(mask_left_eye)
+
+        mask_right_eye_temp[
             :, :, min(x_A_index) - 5 : max(x_A_index) + 6, min(y_A_index) - 5 : max(y_A_index) + 6
-        ] = mask_A_face[:, :, min(x_A_index) - 5 : max(x_A_index) + 6, min(y_A_index) - 5 : max(y_A_index) + 6]
-        mask_B_temp[
+        ] = mask_face[:, :, min(x_A_index) - 5 : max(x_A_index) + 6, min(y_A_index) - 5 : max(y_A_index) + 6]
+        mask_left_eye_temp[
             :, :, min(x_B_index) - 5 : max(x_B_index) + 6, min(y_B_index) - 5 : max(y_B_index) + 6
-        ] = mask_A_face[:, :, min(x_B_index) - 5 : max(x_B_index) + 6, min(y_B_index) - 5 : max(y_B_index) + 6]
+        ] = mask_face[:, :, min(x_B_index) - 5 : max(x_B_index) + 6, min(y_B_index) - 5 : max(y_B_index) + 6]
 
-        mask_A_temp = mask_A_temp.squeeze(0)
-        mask_A = mask_A.squeeze(0)
-        mask_B = mask_B.squeeze(0)
-        mask_A_face = mask_A_face.squeeze(0)
-        mask_B_temp = mask_B_temp.squeeze(0)
+        mask_right_eye_temp = mask_right_eye_temp.squeeze(0)
+        mask_right_eye = mask_right_eye.squeeze(0)
+        mask_left_eye = mask_left_eye.squeeze(0)
+        mask_face = mask_face.squeeze(0)
+        mask_left_eye_temp = mask_left_eye_temp.squeeze(0)
 
-        return mask_A_temp, mask_B_temp
+        return mask_right_eye_temp, mask_left_eye_temp
 
-    def dilate_box(self, mask_A, mask_B, mask_A_face):
-        raise NotImplementedError()
+    def _extract_cnt(self, mask_eye, mask_face, iterations, thickness):
+        dilated_eye = cv2.dilate(mask_eye, self.dilation_kernel, iterations=iterations)
+        cnt_eye, _ = cv2.findContours(dilated_eye, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cnt_mask_eye = np.zeros_like(dilated_eye)
+        cnt_mask_eye = cv2.drawContours(cnt_mask_eye, cnt_eye, -1, (128, 128, 128), thickness).astype(bool)
+
+        mask_eye_out = np.zeros_like(mask_eye)
+        mask_eye_out[cnt_mask_eye] = mask_face[cnt_mask_eye]
+        return mask_eye_out
+
+    def dilate_box(self, mask_right_eye, mask_left_eye, mask_face, thickness=None, iterations=3):
+        mask_right_eye_tmp = mask_right_eye.clone().permute(1, 2, 0).numpy().astype(np.uint8)
+        mask_left_eye_tmp = mask_left_eye.clone().permute(1, 2, 0).numpy().astype(np.uint8)
+        mask_face_tmp = mask_face.clone().permute(1, 2, 0).numpy().astype(np.uint8)
+
+        if thickness is None:
+            thickness = int(1 + max(mask_face.shape[0], mask_face.shape[1]) / 100 * 15)  # 15% contour
+
+        mask_right_eye_out = self._extract_cnt(mask_right_eye_tmp, mask_face_tmp, iterations, thickness)
+        mask_left_eye_out = self._extract_cnt(mask_left_eye_tmp, mask_face_tmp, iterations, thickness)
+
+        mask_right_eye_out = torch.from_numpy(mask_right_eye_out).permute(2, 0, 1).contiguous()
+        mask_left_eye_out = torch.from_numpy(mask_left_eye_out).permute(2, 0, 1).contiguous()
+
+        return mask_right_eye_out, mask_left_eye_out
 
     def rebound_box(self, mask_A, mask_B, mask_A_face):
         if self.eye_box in ("rectangle", "rect", "r"):
