@@ -2,15 +2,25 @@
 
 
 import os
+import random
 from argparse import ArgumentParser
 from datetime import datetime
 
-import wandb
+import numpy as np
+import torch
 import yaml
 from torch.utils.data import DataLoader
 
+import wandb
 from src.SCGAN import SCGAN
 from src.dataset import SCDataset
+
+
+def seed_everything(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
 def init_wandb(global_cfg):
@@ -38,7 +48,11 @@ def main():
     parser.add_argument("config", type=str)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--local", action="store_true")
+    parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
+
+    if args.seed is not None:
+        seed_everything(args.seed)
 
     with open(args.config, "r") as cfg_file:
         cfg = yaml.safe_load(cfg_file)
