@@ -10,7 +10,7 @@ dataset:
   dataroot: datasets/overfit_1example
 
 model:
-  lambda_idt: 2
+  lambda_idt: 0.5
   lambda_A: 10.0
   lambda_B: 10.0
   lambda_his_lip: 1.0
@@ -39,12 +39,12 @@ fit:
   beta2: 0.999
   g_lr: 0.0002
   d_lr: 0.0002
-  g_step: 1
+  g_step: 2
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: idt=2 | rect | g_step=1
+  name: default lambdas | rect | g_step=2
   group: overfit_1example
-  notes: overfit
+  notes: ~
   local: False

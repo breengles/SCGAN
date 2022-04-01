@@ -39,12 +39,12 @@ fit:
   beta2: 0.999
   g_lr: 0.0002
   d_lr: 0.0002
-  g_step: 2
+  g_step: 5
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: default lambdas | rect | g_step=2
+  name: default lambdas | rect | g_step=5
   group: overfit_1example
-  notes: overfit
+  notes: ~
   local: False

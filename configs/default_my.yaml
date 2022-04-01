@@ -32,9 +32,9 @@ model:
   vgg_root: vgg
 
 fit:
-  epochs: 1000
+  epochs: 50
   log_step: 10
-  checkpoint_rate: 100
+  checkpoint_rate: 10
   beta1: 0.5
   beta2: 0.999
   g_lr: 0.0002

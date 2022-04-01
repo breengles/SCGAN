@@ -46,5 +46,5 @@ wandb:
   entity: makeup_science
   name: idt=1 | rect | g_step=1
   group: overfit_1example
-  notes: overfit
+  notes: ~
   local: False
