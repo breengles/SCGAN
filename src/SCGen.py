@@ -57,11 +57,10 @@ class SCGen(nn.Module):
 
             return result
 
-        if self.phase == "test":
+        if self.phase == "transfer":
             fid_x = self.FIEnc(x)
             fid_y1 = self.FIEnc(y1)
             fid_y2 = self.FIEnc(y2)
-            # global
 
             if not self.ispartial and not self.isinterpolation:
                 results = []
@@ -189,6 +188,12 @@ class SCGen(nn.Module):
 
         return num_adain_params
 
+    def transfer(self, src, ref, map_ref):
+        fid_src = self.FIEnc(src)
+        ref_code = self.PSEnc.encode(ref, map_ref)
+        result = self.fuse(fid_src, ref_code, ref_code)
+        return result
+
 
 class PartStyleEncoder(nn.Module):
     def __init__(
@@ -252,8 +257,21 @@ class PartStyleEncoder(nn.Module):
         x = self.model(x)
         return x
 
+    def encode(self, x, map_x):
+        for i in range(0, map_x.size(1)):
+            yi = map_x[:, i, :, :]
+            yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
+            yi = x.mul(yi)
+
+            if i == 0:
+                code = self.componet_enc(yi)
+            else:
+                code = torch.cat([code, self.componet_enc(yi)], dim=1)
+
+        return code
+
     def forward(self, x, map_x, y1, map_y1, y2, map_y2):
-        if self.phase == "test":
+        if self.phase == "transfer":
             # global
             if not self.ispartial:
                 codes = []
@@ -263,8 +281,8 @@ class PartStyleEncoder(nn.Module):
                     [y2, map_y2],
                 ]
 
-                for k in range(0, 3):
-                    for i in range(0, map_x.size(1)):
+                for k in range(3):
+                    for i in range(map_x.size(1)):
                         yi = refs[k][1][:, i, :, :]
                         yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
                         yi = refs[k][0].mul(yi)
@@ -339,17 +357,7 @@ class PartStyleEncoder(nn.Module):
                 return codes
 
         if self.phase == "train":
-            for i in range(0, map_x.size(1)):
-                yi = map_x[:, i, :, :]
-                yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
-                yi = x.mul(yi)
-
-                if i == 0:
-                    code = self.componet_enc(yi)
-                else:
-                    code = torch.cat([code, self.componet_enc(yi)], dim=1)
-
-            return code
+            return self.encode(x, map_x)
 
 
 class FaceEncoder(nn.Module):
