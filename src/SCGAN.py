@@ -39,7 +39,7 @@ class SCGAN(nn.Module):
         input_nc=3,
         ispartial=False,
         isinterpolation=False,
-        pretrained_dir="checkpoints",
+        pretrained_path=None,
         vgg_root="vgg",
     ):
         super().__init__()
@@ -59,7 +59,7 @@ class SCGAN(nn.Module):
         self.ispartial = ispartial
         self.isinterpolation = isinterpolation
 
-        self.pretrained_dir = pretrained_dir
+        self.pretrained_path = pretrained_path
 
         self.layers = ["r41"]
 
@@ -93,7 +93,8 @@ class SCGAN(nn.Module):
 
         self.SCGen.PSEnc.load_vgg(os.path.join(vgg_root, "vgg.pth"))
 
-        self.load_checkpoint()
+        if pretrained_path is not None and os.path.exists(pretrained_path):
+            self.load_checkpoint()
 
         if self.phase == "train":
             self.vgg = VGG()
@@ -119,20 +120,17 @@ class SCGAN(nn.Module):
         return next(self.parameters()).device
 
     def load_checkpoint(self):
-        G_path = os.path.join(self.pretrained_dir, "G.pth")
-        if os.path.exists(G_path):
-            self.SCGen.load_state_dict(torch.load(G_path))
-            print(f"loaded trained generator {G_path}..!")
+        state_dict = torch.load(self.pretrained_path)
 
-        D_A_path = os.path.join(self.pretrained_dir, "D_A.pth")
-        if os.path.exists(D_A_path):
-            self.D_A.load_state_dict(torch.load(D_A_path))
-            print(f"loaded trained discriminator A {D_A_path}..!")
+        if "epoch" in state_dict.keys():
+            self.SCGEN.load_state_dict(state_dict["SCGEN_state_dict"])
+            self.D_A.load_state_dict(state_dict["D_A_state_dict"])
+            self.D_D.load_state_dict(state_dict["D_B_state_dict"])
 
-        D_B_path = os.path.join(self.pretrained_dir, "D_B.pth")
-        if os.path.exists(D_B_path):
-            self.D_B.load_state_dict(torch.load(D_B_path))
-            print(f"loaded trained discriminator B {D_B_path}..!")
+            print(f"Loaded whole model from {self.pretrained_path}!")
+        else:
+            self.SCGen.load_state_dict(state_dict)
+            print(f"Loaded generator model from {self.pretrained_path}!")
 
     def set_input(self, input):
         self.mask_A = input["mask_A"]
