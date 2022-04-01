@@ -39,6 +39,13 @@ class HistogramLoss(nn.Module):
         target_data = (tensor2image(target_data) * 255).squeeze()
         ref = (tensor2image(ref) * 255).squeeze()
 
+        # index_src = torch.nonzero(mask_src)
+        # index_tar = torch.nonzero(mask_tar)
+        # index_src_x = index_src[:, 1]
+        # index_src_y = index_src[:, 2]
+        # index_tar_x = index_tar[:, 1]
+        # index_tar_y = index_tar[:, 2]
+
         mask_src = mask_src.expand(1, 3, mask_src.size(2), mask_src.size(2)).squeeze()
         mask_tar = mask_tar.expand(1, 3, mask_tar.size(2), mask_tar.size(2)).squeeze()
 
@@ -47,6 +54,7 @@ class HistogramLoss(nn.Module):
         ref_masked = ref * mask_src
 
         with torch.no_grad():
+            # TODO: for-loop over batch with extracted indices
             input_match = histogram_matching(ref_masked, target_masked, index).to(input_masked.device) * mask_src
 
         return self.criterion(input_masked, input_match)
