@@ -5,7 +5,7 @@ import wandb
 from torch import nn
 from torch.autograd import Variable
 from torch.optim import Adam
-from tqdm.auto import trange
+from tqdm.auto import tqdm, trange
 
 from src.SCGen import SCGen
 from . import net_utils
@@ -102,7 +102,7 @@ class SCGAN(nn.Module):
 
         self.criterionL1 = torch.nn.L1Loss()
         self.criterionL2 = torch.nn.MSELoss()
-        self.criterionGAN = GANLoss(use_lsgan=True, tensor=torch.cuda.FloatTensor)
+        self.criterionGAN = GANLoss()
         self.criterionHis = HistogramLoss()
 
         self.SCGen.cuda()
@@ -181,12 +181,13 @@ class SCGAN(nn.Module):
                 checkpoint_rate = 1
 
         it = 0
-        for epoch in trange(epochs, desc="Training..."):
-            for data in dataloader:
+        for epoch in trange(epochs, desc="Epoch: ", leave=False):
+            for data in tqdm(dataloader, desc="Batch: ", leave=False):
                 if len(data) == 0:
-                    print("No eyes!!")
                     continue
                 it += 1
+
+                loss = {}
 
                 self.set_input(data)
 
@@ -223,7 +224,6 @@ class SCGAN(nn.Module):
                 d_A_optimizer.step()
 
                 # Logging
-                loss = {}
                 loss["D-A-loss_real"] = d_loss_real.mean().detach().cpu().numpy()
 
                 # training D_B, D_B aims to distinguish class A
@@ -433,7 +433,7 @@ class SCGAN(nn.Module):
                     },
                     checkpoint_path,
                 )
-                wandb.save(checkpoint_path, base_path=self.checkpoint_dir, policy="end")
+                wandb.save(checkpoint_path, base_path=checkpoint_dir, policy="end")
 
     @torch.no_grad()
     def test(self):
