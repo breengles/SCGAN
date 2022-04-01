@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 
-./train.py configs/test_dilate.yaml --seed 42 --local
-./train.py configs/test_rect.yaml --seed 42 --local
+# ./train.py configs/test_dilate.yaml --seed 42 --local
+# ./train.py configs/test_rect.yaml --seed 42 --local
 
 
 #for cfg in configs/overfit/*
@@ -18,12 +18,11 @@
 #wandb sync wandb/offline-*
 
 
+./train.py configs/rect/beauty.yaml --seed 42 --local
+./train.py configs/rect/merged.yaml --seed 42 --local
 
-#./train.py configs/default_beauty.yaml --local --seed 42
-#./train.py configs/default_daniil.yaml --local --seed 42
-#./train.py configs/default_merged.yaml --local --seed 42
-#./train.py configs/default_my.yaml --local --seed 42
-
+./train.py configs/dilate/beauty.yaml --seed 42 --local
+./train.py configs/dilate/merged.yaml --seed 42 --local
 
 
 

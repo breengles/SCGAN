@@ -7,7 +7,8 @@ img_info:
 
 
 dataset:
-  dataroot: datasets/daniil.128px.cut.crop
+  dataroot: datasets/merged.128px.cut.crop
+  eye_box: dilate
 
 model:
   lambda_idt: 0.5
@@ -28,13 +29,13 @@ model:
   input_nc: 3
   ispartial: False
   isinterpolation: False
-  pretrained_dir: checkpoints
+  pretrained_dir: ~
   vgg_root: vgg
 
 fit:
-  epochs: 50
+  epochs: 100
   log_step: 10
-  checkpoint_rate: 10
+  checkpoint_rate: 20
   beta1: 0.5
   beta2: 0.999
   g_lr: 0.0002
@@ -44,7 +45,7 @@ fit:
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: default lambdas | rect | g_step=1
-  group: daniil
-  notes: overfit
+  name: default lambdas | dilate | g_step=1
+  group: merged
+  notes: ~
   local: False
