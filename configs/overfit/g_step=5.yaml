@@ -28,7 +28,7 @@ model:
   input_nc: 3
   ispartial: False
   isinterpolation: False
-  pretrained_dir: checkpoints
+  pretrained_path: ~
   vgg_root: vgg
 
 fit:
