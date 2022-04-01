@@ -57,109 +57,109 @@ class SCGen(nn.Module):
 
             return result
 
-        if self.phase == "transfer":
-            fid_x = self.FIEnc(x)
-            fid_y1 = self.FIEnc(y1)
-            fid_y2 = self.FIEnc(y2)
-
-            if not self.ispartial and not self.isinterpolation:
-                results = []
-                codes = self.PSEnc(y1, map_y1, y2, map_y2, x, map_x)
-
-                # print(codes[0].shape)
-
-                fids = [fid_x, fid_x, fid_y1, fid_y2]
-                codes.append(codes[-1])  # for demakeup
-                length = len(fids)
-
-                for i in range(0, length):
-                    result = self.fuse(fids[i], codes[i], codes[i])
-                    results.append(result)
-
-                return results
-            # global interpolation
-
-            elif not self.ispartial and self.isinterpolation:
-                resultss = []
-                codes = self.PSEnc(y1, map_y1, y2, map_y2, x, map_x)
-                fids = [fid_x, fid_x, fid_y2, fid_y1]
-                length = len(fids)
-                # shade control makeup
-                for i in range(0, 2):
-                    code_x = codes[-1]
-                    code_y = codes[i]
-                    results = []
-
-                    for a in range(0, 11, 1):
-                        a = a / 10
-                        result = self.fuse(fids[i], code_x, code_y, a)
-                        results.append(result)
-                    resultss.append(results)
-
-                # shade control demakeup
-                for i in range(0, 2):
-                    code_x = codes[i]
-                    code_y = codes[-1]
-                    results = []
-
-                    for a in range(0, 11, 1):
-                        a = a / 10
-                        result = self.fuse(fids[length - i - 1], code_x, code_y, a)
-                        results.append(result)
-                    resultss.append(results)
-
-                # interpolation between two refs
-                code_x = codes[0]
-                code_y = codes[1]
-                results = []
-
-                for a in range(0, 11, 1):
-                    a = a / 10
-                    result = self.fuse(fids[0], code_x, code_y, a)
-                    results.append(result)
-                resultss.append(results)
-
-                return resultss
-
-            elif self.ispartial and not self.isinterpolation:
-                codes = self.PSEnc(x, map_x, y1, map_y1, y2, map_y2)
-                resultss = []
-
-                for i in range(0, 2):
-                    results = []
-                    for j in range(0, 3):
-                        results.append(self.fuse(fid_x, codes[i * 3 + j], codes[i * 3 + j]))
-                    resultss.append(results)
-
-                results = []
-                for i in range(6, 8):
-                    results.append(self.fuse(fid_x, codes[i], codes[i]))
-                resultss.append(results)
-
-                return resultss
-
-            elif self.ispartial and self.isinterpolation:
-                codes = self.PSEnc(x, map_x, y1, map_y1, y2, map_y2)
-                resultss = []
-
-                for i in range(0, 2):
-                    for j in range(0, 3):
-                        results = []
-                        for a in range(0, 11, 1):
-                            a = a / 10
-                            result = self.fuse(fid_x, codes[-1], codes[i * 3 + j], a)
-                            results.append(result)
-                        resultss.append(results)
-
-                for i in range(0, 3):
-                    results = []
-                    for a in range(0, 11, 1):
-                        a = a / 10
-                        result = self.fuse(fid_x, codes[i], codes[i + 3], a)
-                        results.append(result)
-                    resultss.append(results)
-
-                return resultss
+        # if self.phase == "transfer":
+        #     fid_x = self.FIEnc(x)
+        #     fid_y1 = self.FIEnc(y1)
+        #     fid_y2 = self.FIEnc(y2)
+        #
+        #     if not self.ispartial and not self.isinterpolation:
+        #         results = []
+        #         codes = self.PSEnc(y1, map_y1, y2, map_y2, x, map_x)
+        #
+        #         # print(codes[0].shape)
+        #
+        #         fids = [fid_x, fid_x, fid_y1, fid_y2]
+        #         codes.append(codes[-1])  # for demakeup
+        #         length = len(fids)
+        #
+        #         for i in range(0, length):
+        #             result = self.fuse(fids[i], codes[i], codes[i])
+        #             results.append(result)
+        #
+        #         return results
+        #     # global interpolation
+        #
+        #     elif not self.ispartial and self.isinterpolation:
+        #         resultss = []
+        #         codes = self.PSEnc(y1, map_y1, y2, map_y2, x, map_x)
+        #         fids = [fid_x, fid_x, fid_y2, fid_y1]
+        #         length = len(fids)
+        #         # shade control makeup
+        #         for i in range(0, 2):
+        #             code_x = codes[-1]
+        #             code_y = codes[i]
+        #             results = []
+        #
+        #             for a in range(0, 11, 1):
+        #                 a = a / 10
+        #                 result = self.fuse(fids[i], code_x, code_y, a)
+        #                 results.append(result)
+        #             resultss.append(results)
+        #
+        #         # shade control demakeup
+        #         for i in range(0, 2):
+        #             code_x = codes[i]
+        #             code_y = codes[-1]
+        #             results = []
+        #
+        #             for a in range(0, 11, 1):
+        #                 a = a / 10
+        #                 result = self.fuse(fids[length - i - 1], code_x, code_y, a)
+        #                 results.append(result)
+        #             resultss.append(results)
+        #
+        #         # interpolation between two refs
+        #         code_x = codes[0]
+        #         code_y = codes[1]
+        #         results = []
+        #
+        #         for a in range(0, 11, 1):
+        #             a = a / 10
+        #             result = self.fuse(fids[0], code_x, code_y, a)
+        #             results.append(result)
+        #         resultss.append(results)
+        #
+        #         return resultss
+        #
+        #     elif self.ispartial and not self.isinterpolation:
+        #         codes = self.PSEnc(x, map_x, y1, map_y1, y2, map_y2)
+        #         resultss = []
+        #
+        #         for i in range(0, 2):
+        #             results = []
+        #             for j in range(0, 3):
+        #                 results.append(self.fuse(fid_x, codes[i * 3 + j], codes[i * 3 + j]))
+        #             resultss.append(results)
+        #
+        #         results = []
+        #         for i in range(6, 8):
+        #             results.append(self.fuse(fid_x, codes[i], codes[i]))
+        #         resultss.append(results)
+        #
+        #         return resultss
+        #
+        #     elif self.ispartial and self.isinterpolation:
+        #         codes = self.PSEnc(x, map_x, y1, map_y1, y2, map_y2)
+        #         resultss = []
+        #
+        #         for i in range(0, 2):
+        #             for j in range(0, 3):
+        #                 results = []
+        #                 for a in range(0, 11, 1):
+        #                     a = a / 10
+        #                     result = self.fuse(fid_x, codes[-1], codes[i * 3 + j], a)
+        #                     results.append(result)
+        #                 resultss.append(results)
+        #
+        #         for i in range(0, 3):
+        #             results = []
+        #             for a in range(0, 11, 1):
+        #                 a = a / 10
+        #                 result = self.fuse(fid_x, codes[i], codes[i + 3], a)
+        #                 results.append(result)
+        #             resultss.append(results)
+        #
+        #         return resultss
 
     def fuse(self, content, style0, style1, a=0):
         adain_params = self.MLP(style0, style1, a)
@@ -203,8 +203,8 @@ class PartStyleEncoder(nn.Module):
         self.phase = phase
         self.isinterpolation = isinterpolation
         self.ispartial = ispartial
-        self.vgg = None
 
+        self.vgg = models.vgg19(pretrained=False).features
         self.load_vgg(os.path.join(vgg_root, "vgg.pth"))
 
         for param in self.vgg.parameters():
@@ -271,90 +271,90 @@ class PartStyleEncoder(nn.Module):
         return code
 
     def forward(self, x, map_x, y1, map_y1, y2, map_y2):
-        if self.phase == "transfer":
-            # global
-            if not self.ispartial:
-                codes = []
-                refs = [
-                    [x, map_x],
-                    [y1, map_y1],
-                    [y2, map_y2],
-                ]
-
-                for k in range(3):
-                    for i in range(map_x.size(1)):
-                        yi = refs[k][1][:, i, :, :]
-                        yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
-                        yi = refs[k][0].mul(yi)
-
-                        if i == 0:
-                            code = self.componet_enc(yi)
-                        else:
-                            code = torch.cat([code, self.componet_enc(yi)], dim=1)
-
-                    codes.append(code)
-
-                return codes
-
-            else:
-                # partial
-                codes = []
-                refs = [
-                    [y1, map_y1],
-                    [y2, map_y2],
-                ]
-                # one ref
-                for k in range(0, 2):
-                    for part in range(0, 3):
-                        for i in range(0, map_x.size(1)):
-                            if i == part:
-                                yi = refs[k][1][:, i, :, :]
-                                yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
-                                yi = refs[k][0].mul(yi)
-                            else:
-                                yi = map_x[:, i, :, :]
-                                yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
-                                yi = x.mul(yi)
-
-                            if i == 0:
-                                code = self.componet_enc(yi)
-                            else:
-                                code = torch.cat([code, self.componet_enc(yi)], dim=1)
-
-                        codes.append(code)
-
-                # two refs
-                for k in range(0, 2):
-                    for i in range(0, map_x.size(1)):
-                        if i == 0:
-                            yi = refs[k][1][:, i, :, :]
-                            yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
-                            yi = refs[k][0].mul(yi)
-                        else:
-                            yi = refs[1 - k][1][:, i, :, :]
-                            yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
-                            yi = refs[1 - k][0].mul(yi)
-
-                        if i == 0:
-                            code = self.componet_enc(yi)
-                        else:
-                            code = torch.cat([code, self.componet_enc(yi)], dim=1)
-
-                    codes.append(code)
-
-                for i in range(0, map_x.size(1)):
-                    yi = map_x[:, i, :, :]
-                    yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
-                    yi = x.mul(yi)
-
-                    if i == 0:
-                        code = self.componet_enc(yi)
-                    else:
-                        code = torch.cat([code, self.componet_enc(yi)], dim=1)
-
-                codes.append(code)
-
-                return codes
+        # if self.phase == "transfer":
+        #     # global
+        #     if not self.ispartial:
+        #         codes = []
+        #         refs = [
+        #             [x, map_x],
+        #             [y1, map_y1],
+        #             [y2, map_y2],
+        #         ]
+        #
+        #         for k in range(3):
+        #             for i in range(map_x.size(1)):
+        #                 yi = refs[k][1][:, i, :, :]
+        #                 yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
+        #                 yi = refs[k][0].mul(yi)
+        #
+        #                 if i == 0:
+        #                     code = self.componet_enc(yi)
+        #                 else:
+        #                     code = torch.cat([code, self.componet_enc(yi)], dim=1)
+        #
+        #             codes.append(code)
+        #
+        #         return codes
+        #
+        #     else:
+        #         # partial
+        #         codes = []
+        #         refs = [
+        #             [y1, map_y1],
+        #             [y2, map_y2],
+        #         ]
+        #         # one ref
+        #         for k in range(0, 2):
+        #             for part in range(0, 3):
+        #                 for i in range(0, map_x.size(1)):
+        #                     if i == part:
+        #                         yi = refs[k][1][:, i, :, :]
+        #                         yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
+        #                         yi = refs[k][0].mul(yi)
+        #                     else:
+        #                         yi = map_x[:, i, :, :]
+        #                         yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
+        #                         yi = x.mul(yi)
+        #
+        #                     if i == 0:
+        #                         code = self.componet_enc(yi)
+        #                     else:
+        #                         code = torch.cat([code, self.componet_enc(yi)], dim=1)
+        #
+        #                 codes.append(code)
+        #
+        #         # two refs
+        #         for k in range(0, 2):
+        #             for i in range(0, map_x.size(1)):
+        #                 if i == 0:
+        #                     yi = refs[k][1][:, i, :, :]
+        #                     yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
+        #                     yi = refs[k][0].mul(yi)
+        #                 else:
+        #                     yi = refs[1 - k][1][:, i, :, :]
+        #                     yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
+        #                     yi = refs[1 - k][0].mul(yi)
+        #
+        #                 if i == 0:
+        #                     code = self.componet_enc(yi)
+        #                 else:
+        #                     code = torch.cat([code, self.componet_enc(yi)], dim=1)
+        #
+        #             codes.append(code)
+        #
+        #         for i in range(0, map_x.size(1)):
+        #             yi = map_x[:, i, :, :]
+        #             yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
+        #             yi = x.mul(yi)
+        #
+        #             if i == 0:
+        #                 code = self.componet_enc(yi)
+        #             else:
+        #                 code = torch.cat([code, self.componet_enc(yi)], dim=1)
+        #
+        #         codes.append(code)
+        #
+        #         return codes
 
         if self.phase == "train":
             return self.encode(x, map_x)
@@ -434,10 +434,10 @@ class MLP(nn.Module):
         self.model = nn.Sequential(*self.model)
 
     def forward(self, style0, style1, a=0):
-        return self.model[3](
-            (1 - a) * self.model[0:3](style0.view(style0.size(0), -1))
-            + a * self.model[0:3](style1.view(style1.size(0), -1))
-        )
+        x1 = self.model[0:-1](style0.view(style0.size(0), -1))
+        x2 = self.model[0:-1](style1.view(style1.size(0), -1))
+        x = (1 - a) * x1 + a * x2
+        return self.model[-1](x)
 
 
 ##################################################################################
