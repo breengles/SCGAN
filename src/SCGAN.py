@@ -95,18 +95,18 @@ class SCGAN(nn.Module):
 
         self.load_checkpoint()
 
-        self.vgg = VGG()
-
         if self.phase == "train":
+            self.vgg = VGG()
             self.vgg.load_state_dict(torch.load(os.path.join(vgg_root, "vgg_conv.pth")))
+            self.vgg.cuda()
 
         self.criterionL1 = torch.nn.L1Loss()
         self.criterionL2 = torch.nn.MSELoss()
         self.criterionGAN = GANLoss()
         self.criterionHis = HistogramLoss()
 
+        # kinda rude
         self.SCGen.cuda()
-        self.vgg.cuda()
         self.criterionHis.cuda()
         self.criterionGAN.cuda()
         self.criterionL1.cuda()
