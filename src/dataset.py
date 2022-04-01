@@ -1,4 +1,5 @@
 import os.path
+from enum import IntEnum
 
 import numpy as np
 import torch
@@ -7,6 +8,21 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.transforms import InterpolationMode
 from torchvision.transforms.functional import hflip
+
+
+class Regions(IntEnum):
+    FACE = 4
+    NOSE = 8
+    RIGHT_EYE = 1
+    LEFT_EYE = 6
+    UPPER_LIP_VERMILLION = 9
+    LOWER_LIP_VERMILLION = 13
+    RIGHT_EYEBROW = 2
+    LEFT_EYEBROW = 7
+    TEETH = 11
+    NECK = 10
+    BACKGROUND = 0
+    HAIR = 12
 
 
 def ToTensor(pic):
@@ -29,7 +45,7 @@ def ToTensor(pic):
 
     # put it from HWC to CHW format
     # yikes, this transpose takes 80% of the loading time/CPU
-    img = img.transpose(0, 1).transpose(0, 2).contiguous()
+    img = img.permute(2, 0, 1).contiguous()
 
     if isinstance(img, torch.ByteTensor):
         return img.float()
@@ -98,6 +114,7 @@ class SCDataset(Dataset):
         mask_B = self.transform_mask(makeup_seg_img)  # makeup
         mask_A = self.transform_mask(nonmakeup_seg_img)  # nonmakeup
 
+        # augmentations with horizontal flip of image and its mask
         if np.random.uniform() < self.flip_proba:
             makeup_img = hflip(makeup_img)
             mask_B = hflip(mask_B)
@@ -110,37 +127,42 @@ class SCDataset(Dataset):
         nonmakeup_seg = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float)
 
         makeup_unchanged = (
-            (mask_B == 7).float()
-            + (mask_B == 2).float()
-            + (mask_B == 6).float()
-            + (mask_B == 1).float()
-            + (mask_B == 11).float()
+            (mask_B == Regions.LEFT_EYEBROW).float()
+            + (mask_B == Regions.RIGHT_EYEBROW).float()
+            + (mask_B == Regions.LEFT_EYE).float()
+            + (mask_B == Regions.RIGHT_EYE).float()
+            + (mask_B == Regions.TEETH).float()
         )
         nonmakeup_unchanged = (
-            (mask_A == 7).float()
-            + (mask_A == 2).float()
-            + (mask_A == 6).float()
-            + (mask_A == 1).float()
-            + (mask_A == 11).float()
+            (mask_A == Regions.LEFT_EYEBROW).float()
+            + (mask_A == Regions.RIGHT_EYEBROW).float()
+            + (mask_A == Regions.LEFT_EYE).float()
+            + (mask_A == Regions.RIGHT_EYE).float()
+            + (mask_A == Regions.TEETH).float()
         )
-        mask_A_lip = (mask_A == 9).float() + (mask_A == 13).float()
-        mask_B_lip = (mask_B == 9).float() + (mask_B == 13).float()
+
+        mask_A_lip = (mask_A == Regions.UPPER_LIP_VERMILLION).float() + (mask_A == Regions.LOWER_LIP_VERMILLION).float()
+        mask_B_lip = (mask_B == Regions.UPPER_LIP_VERMILLION).float() + (mask_B == Regions.LOWER_LIP_VERMILLION).float()
         mask_A_lip, mask_B_lip, index_A_lip, index_B_lip = self.mask_preprocess(mask_A_lip, mask_B_lip)
         makeup_seg[0] = mask_B_lip
         nonmakeup_seg[0] = mask_A_lip
 
-        mask_A_skin = (mask_A == 4).float() + (mask_A == 8).float() + (mask_A == 10).float()
-        mask_B_skin = (mask_B == 4).float() + (mask_B == 8).float() + (mask_B == 10).float()
+        mask_A_skin = (
+            (mask_A == Regions.FACE).float() + (mask_A == Regions.NOSE).float() + (mask_A == Regions.NECK).float()
+        )
+        mask_B_skin = (
+            (mask_B == Regions.FACE).float() + (mask_B == Regions.NOSE).float() + (mask_B == Regions.NECK).float()
+        )
         mask_A_skin, mask_B_skin, index_A_skin, index_B_skin = self.mask_preprocess(mask_A_skin, mask_B_skin)
         makeup_seg[1] = mask_B_skin
         nonmakeup_seg[1] = mask_A_skin
 
-        mask_A_eye_left = (mask_A == 6).float()
-        mask_A_eye_right = (mask_A == 1).float()
-        mask_B_eye_left = (mask_B == 6).float()
-        mask_B_eye_right = (mask_B == 1).float()
-        mask_A_face = (mask_A == 4).float() + (mask_A == 8).float()
-        mask_B_face = (mask_B == 4).float() + (mask_B == 8).float()
+        mask_A_eye_left = (mask_A == Regions.LEFT_EYE).float()
+        mask_A_eye_right = (mask_A == Regions.RIGHT_EYE).float()
+        mask_B_eye_left = (mask_B == Regions.LEFT_EYE).float()
+        mask_B_eye_right = (mask_B == Regions.RIGHT_EYE).float()
+        mask_A_face = (mask_A == Regions.FACE).float() + (mask_A == Regions.NOSE).float()
+        mask_B_face = (mask_B == Regions.FACE).float() + (mask_B == Regions.NOSE).float()
 
         # avoid the es of ref are closed
         if not ((mask_B_eye_left > 0).any() and (mask_B_eye_right > 0).any()):
