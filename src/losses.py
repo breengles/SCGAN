@@ -26,6 +26,15 @@ class HistogramLoss(nn.Module):
         self.criterion = torch.nn.L1Loss()
 
     def forward(self, input_data, target_data, mask_src, mask_tar, index, ref):
+        """
+        better calc indices here (see dataset.py mask_preprocess method)
+        as these indices do not allow for batch constructions
+        either remove from dataset or pad with -1 to unisize
+
+        anyway this loss will be computed with for-loop over batch
+        because histogram matching does not work for batch
+        """
+
         input_data = (tensor2image(input_data) * 255).squeeze()
         target_data = (tensor2image(target_data) * 255).squeeze()
         ref = (tensor2image(ref) * 255).squeeze()
@@ -90,6 +99,7 @@ def histogram_matching(dst_img, ref_img, index):
     index[2], index[3]: the index of pixels that to compute histogram in refImg
     """
 
+    # faster but less accurate approach
     # dst_img = dst_img.cpu().numpy()
     # ref_img = ref_img.cpu().numpy()
     # matched = match_histograms(dst_img, ref_img, channel_axis=0)
@@ -114,7 +124,7 @@ def histogram_matching(dst_img, ref_img, index):
         for k in range(len(index[0])):
             dst_align[i, k] = tables[i][int(mid[i, k])]
 
-    for i in range(0, 3):
+    for i in range(3):
         dst_img[i, index[0], index[1]] = dst_align[i]
 
     return torch.tensor(dst_img, dtype=torch.float32)
