@@ -45,6 +45,10 @@ class SCGen(nn.Module):
         )
         self.MLP = MLP(style_dim, self.get_num_adain_params(self.MFDec), mlp_dim, 3, norm="none", activ=activ)
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
     def forward(self, x, map_x, y1, map_y1, y2, map_y2):
         if self.phase == "train":
             fid_x = self.FIEnc(x)
@@ -190,9 +194,14 @@ class SCGen(nn.Module):
 
     def transfer(self, src, ref, map_ref):
         fid_src = self.FIEnc(src)
-        ref_code = self.PSEnc.encode(ref, map_ref)
+        ref_code = self.PSEnc.encode(ref, map_ref)  # [1, 192, 1, 1]
         result = self.fuse(fid_src, ref_code, ref_code)
         return result
+
+    @torch.no_grad()
+    def transfer_by_code(self, src, code):
+        fid_src = self.FIEnc(src)
+        return self.fuse(fid_src, code, code)
 
 
 class PartStyleEncoder(nn.Module):

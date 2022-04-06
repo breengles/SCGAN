@@ -53,24 +53,19 @@ def main():
     else:
         model.load_state_dict(state_dict)
 
-    model.eval()
+    model.to(args.device).eval()
 
     for data in tqdm(dataloader):
-        makeup = data["makeup_img"]
-        nonmakeup = data["nonmakeup_img"]
-
-        makeup_seg = data["makeup_seg"]
-        nonmakeup_seg = data["nonmakeup_seg"]
-
-        mask_makeup = data["mask_B"]
-        mask_nonmakeup = data["mask_A"]
+        makeup = data["makeup_img"].to(args.device)
+        nonmakeup = data["nonmakeup_img"].to(args.device)
+        makeup_seg = data["makeup_seg"].to(args.device)
 
         with torch.no_grad():
             result = model.transfer(nonmakeup, makeup, makeup_seg)
 
-        nonmakeup = tensor2image(nonmakeup).squeeze(0).permute(1, 2, 0)
-        makeup = tensor2image(makeup).squeeze(0).permute(1, 2, 0)
-        result = tensor2image(result).squeeze(0).permute(1, 2, 0)
+        nonmakeup = tensor2image(nonmakeup).squeeze(0).permute(1, 2, 0).cpu().numpy()
+        makeup = tensor2image(makeup).squeeze(0).permute(1, 2, 0).cpu().numpy()
+        result = tensor2image(result).squeeze(0).permute(1, 2, 0).cpu().numpy()
 
         fig, ax = plt.subplots(1, 3)
         ax[0].imshow(nonmakeup)

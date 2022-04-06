@@ -31,10 +31,11 @@ model:
   isinterpolation: False
   pretrained_path: ~
   vgg_root: vgg
+  fast_matching: False
 
 fit:
   epochs: 100
-  log_step: 10
+  log_step: 100
   checkpoint_rate: 20
   beta1: 0.5
   beta2: 0.999
@@ -45,7 +46,7 @@ fit:
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: default lambdas | dilate | g_step=1
-  group: merged
+  name: accurate | rgb
+  group: histomatching
   notes: ~
   local: False

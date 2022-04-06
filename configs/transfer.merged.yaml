@@ -7,8 +7,8 @@ img_info:
 
 
 dataset:
-  dataroot: datasets/merged.128px.cut.crop
-  eye_box: rect
+  dataroot: datasets/transfer.merged.128px.cut.crop
+  eye_box: dilate
 
 model:
   lambda_idt: 0.5
@@ -29,7 +29,7 @@ model:
   input_nc: 3
   ispartial: False
   isinterpolation: False
-  pretrained_path: checkpoints/G.original.pth
+  pretrained_path: ~
   vgg_root: vgg
 
 fit:
@@ -41,12 +41,11 @@ fit:
   g_lr: 0.0002
   d_lr: 0.0002
   g_step: 1
-  g_delay: 1000
 
 wandb:
   project: SCGAN
   entity: makeup_science
   name: default lambdas | dilate | g_step=1
-  group: finetuning
+  group: merged
   notes: ~
   local: False

@@ -2,12 +2,12 @@ phase: "train"
 batch_size: 1
 
 img_info:
-  img_size: 512
+  img_size: 128
   n_components: 3
 
 
 dataset:
-  dataroot: datasets/merged.512px.cut.crop
+  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.my.cut.crop_beautygan.cut.crop.ffhq.cut.crop
   eye_box: dilate
 
 model:
@@ -33,8 +33,8 @@ model:
   vgg_root: vgg
 
 fit:
-  epochs: 200
-  log_step: 512
+  epochs: 100
+  log_step: 10
   checkpoint_rate: 20
   beta1: 0.5
   beta2: 0.999
@@ -45,7 +45,7 @@ fit:
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: default lambdas | dilate | g_step=1 | 512
-  group: merged
+  name: default lambdas | dilate | g_step=1
+  group: beauty + daniil + my + ffhq 
   notes: ~
   local: False

@@ -8,6 +8,7 @@ import yaml
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+from torchvision.utils import make_grid
 
 from src.SCGen import SCGen
 from src.dataset import TransferDataset
@@ -53,29 +54,26 @@ def main():
     else:
         model.load_state_dict(state_dict)
 
-    model.eval()
+    model.to(args.device).eval()
 
     for data in tqdm(dataloader):
-        makeup = data["makeup_img"]
-        nonmakeup = data["nonmakeup_img"]
+        nonmakeup = data["nonmakeup_img"].to(args.device)
 
-        makeup_seg = data["makeup_seg"]
-        nonmakeup_seg = data["nonmakeup_seg"]
-
-        mask_makeup = data["mask_B"]
-        mask_nonmakeup = data["mask_A"]
-
+        results = []
+        codes = torch.randn(100, 1, 192, 1, 1, device=args.device)
         with torch.no_grad():
-            result = model.transfer(nonmakeup, makeup, makeup_seg)
+            for code in codes:
+                result = model.transfer_by_code(nonmakeup, code)
+                results.append(result)
 
-        nonmakeup = tensor2image(nonmakeup).squeeze(0).permute(1, 2, 0)
-        makeup = tensor2image(makeup).squeeze(0).permute(1, 2, 0)
-        result = tensor2image(result).squeeze(0).permute(1, 2, 0)
+        results = [tensor2image(result).squeeze(0).cpu() for result in results]
+        results = make_grid(results, nrow=10).permute(1, 2, 0)
 
-        fig, ax = plt.subplots(1, 3)
+        nonmakeup = tensor2image(nonmakeup).squeeze(0).permute(1, 2, 0).cpu().numpy()
+
+        fig, ax = plt.subplots(1, 2, figsize=(12, 12))
         ax[0].imshow(nonmakeup)
-        ax[1].imshow(makeup)
-        ax[2].imshow(result)
+        ax[1].imshow(results)
 
         plt.show()
 

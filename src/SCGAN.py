@@ -14,6 +14,8 @@ from .losses import GANLoss, HistogramLoss
 from .utils import wandb_save_images
 from .vgg import VGG
 
+from matplotlib import pyplot as plt
+
 
 class SCGAN(nn.Module):
     def __init__(
@@ -41,6 +43,8 @@ class SCGAN(nn.Module):
         isinterpolation=False,
         pretrained_path=None,
         vgg_root="vgg",
+        hsv=False,
+        fast_matching=False,
     ):
         super().__init__()
 
@@ -104,7 +108,7 @@ class SCGAN(nn.Module):
         self.criterionL1 = torch.nn.L1Loss()
         self.criterionL2 = torch.nn.MSELoss()
         self.criterionGAN = GANLoss()
-        self.criterionHis = HistogramLoss()
+        self.criterionHis = HistogramLoss(hsv=hsv, fast_matching=fast_matching)
 
         # kinda rude
         self.SCGen.cuda()
@@ -163,6 +167,7 @@ class SCGAN(nn.Module):
         g_lr=2e-4,
         d_lr=2e-4,
         g_step=2e-4,
+        g_delay=1,
         log_step=1,
         checkpoint_rate=None,
     ):
@@ -202,17 +207,14 @@ class SCGAN(nn.Module):
 
                 # ================== Train D ================== #
                 # training D_A, D_A aims to distinguish class B
-                # Real
+                # Real makeup
                 out = self.D_A(makeup)
-
                 d_loss_real = self.criterionGAN(out, True)
 
-                # Fake
-                fake_makeup = self.SCGen(nonmakeup, nonmakeup_seg, makeup, makeup_seg, makeup, makeup_seg)
-
-                fake_makeup = Variable(fake_makeup.data).detach()
+                # Fake makeup
+                with torch.no_grad():
+                    fake_makeup = self.SCGen(nonmakeup, nonmakeup_seg, makeup, makeup_seg, makeup, makeup_seg)
                 out = self.D_A(fake_makeup)
-
                 d_loss_fake = self.criterionGAN(out, False)
 
                 # Backward + Optimize
@@ -225,14 +227,13 @@ class SCGAN(nn.Module):
                 loss["D-A-loss_real"] = d_loss_real.mean().detach().cpu().numpy()
 
                 # training D_B, D_B aims to distinguish class A
-                # Real
+                # Real non-makeup
                 out = self.D_B(nonmakeup)
                 d_loss_real = self.criterionGAN(out, True)
-                # Fake
 
-                fake_nonmakeup = self.SCGen(makeup, makeup_seg, nonmakeup, nonmakeup_seg, nonmakeup, nonmakeup_seg)
-
-                fake_nonmakeup = Variable(fake_nonmakeup.data).detach()
+                # Fake de-makeup
+                with torch.no_grad():
+                    fake_nonmakeup = self.SCGen(makeup, makeup_seg, nonmakeup, nonmakeup_seg, nonmakeup, nonmakeup_seg)
                 out = self.D_B(fake_nonmakeup)
                 d_loss_fake = self.criterionGAN(out, False)
 
@@ -246,12 +247,14 @@ class SCGAN(nn.Module):
                 loss["D-B-loss_real"] = d_loss_real.mean().detach().cpu().numpy()
 
                 # ================== Train G ================== #
-                if (it + 1) % g_step == 0:
+                if it >= g_delay and (it + 1) % g_step == 0:
                     # G should be identity if ref_B or org_A is fed
                     idt_A = self.SCGen(makeup, makeup_seg, makeup, makeup_seg, makeup, makeup_seg)
                     idt_B = self.SCGen(nonmakeup, nonmakeup_seg, nonmakeup, nonmakeup_seg, nonmakeup, nonmakeup_seg)
-                    loss_idt_A = self.criterionL1(idt_A, makeup) * self.lambda_A * self.lambda_idt
-                    loss_idt_B = self.criterionL1(idt_B, nonmakeup) * self.lambda_B * self.lambda_idt
+                    loss_idt_A = self.criterionL2(idt_A, makeup) * self.lambda_A * self.lambda_idt
+                    loss_idt_B = self.criterionL2(idt_B, nonmakeup) * self.lambda_B * self.lambda_idt
+                    # loss_idt_A = self.criterionL1(idt_A, makeup) * self.lambda_A * self.lambda_idt
+                    # loss_idt_B = self.criterionL1(idt_B, nonmakeup) * self.lambda_B * self.lambda_idt
                     # loss_idt
                     loss_idt = (loss_idt_A + loss_idt_B) * 0.5
                     # loss_idt = loss_idt_A * 0.5
@@ -379,13 +382,13 @@ class SCGAN(nn.Module):
                     g_loss_rec_B = self.criterionL1(rec_B, makeup) * self.lambda_B
 
                     # vgg loss
-                    vgg_s = self.vgg(nonmakeup, self.layers)[0]
-                    vgg_s = Variable(vgg_s.data).detach()
+                    with torch.no_grad():
+                        vgg_s = self.vgg(nonmakeup, self.layers)[0]
+                        vgg_r = self.vgg(makeup, self.layers)[0]
+
                     vgg_fake_nonmakeup = self.vgg(fake_nonmakeup, self.layers)[0]
                     g_loss_A_vgg = self.criterionL2(vgg_fake_nonmakeup, vgg_s) * self.lambda_A * self.lambda_vgg
 
-                    vgg_r = self.vgg(makeup, self.layers)[0]
-                    vgg_r = Variable(vgg_r.data).detach()
                     vgg_fake_makeup = self.vgg(fake_makeup, self.layers)[0]
                     g_loss_B_vgg = self.criterionL2(vgg_fake_makeup, vgg_r) * self.lambda_B * self.lambda_vgg
                     # local-per
@@ -418,7 +421,7 @@ class SCGAN(nn.Module):
 
                 if (it + 1) % log_step == 0:
                     wandb.log(loss)
-                    wandb_save_images([nonmakeup, makeup, fake_makeup])
+                    wandb_save_images([nonmakeup, makeup, fake_makeup, fake_nonmakeup])
 
             if checkpoint_rate is not None and (epoch + 1) % checkpoint_rate == 0:
                 checkpoint_path = os.path.join(checkpoint_dir, f"{epoch + 1}.pth")
@@ -530,53 +533,3 @@ class SCGAN(nn.Module):
                 results[i].reverse()
 
             self.imgs_save(results)
-
-    # @torch.no_grad()
-    # def transfer(self, source_path, reference_path, source_seg_path, reference_seg_path):
-    #     self.SCGen.eval()
-    #     self.D_A.eval()
-    #     self.D_B.eval()
-    #
-    #     dataloader = TransferDataLoader(source_path, reference_path, source_seg_path, reference_seg_path, self.opt)
-    #
-    #     makeups = []
-    #     makeups_seg = []
-    #     nonmakeups = []
-    #     nonmakeups_seg = []
-    #
-    #     for self.i, data in enumerate(dataloader):
-    #         if len(data) == 0:
-    #             print("No eyes!!")
-    #             continue
-    #
-    #         self.set_input(data)
-    #         makeup, nonmakeup = self.to_var(self.makeup), self.to_var(self.nonmakeup)
-    #         makeup_seg, nonmakeup_seg = self.to_var(self.makeup_seg), self.to_var(self.nonmakeup_seg)
-    #
-    #         makeups.append(makeup)
-    #         makeups_seg.append(makeup_seg)
-    #         nonmakeups.append(nonmakeup)
-    #         nonmakeups_seg.append(nonmakeup_seg)
-    #
-    #     source, ref = nonmakeups[0], makeups[0]
-    #     source_seg, ref_seg = nonmakeups_seg[0], makeups_seg[0]
-    #
-    #     transfered = self.SCGen(source, source_seg, ref, ref_seg, ref, ref_seg)
-    #
-    #     if not self.ispartial and not self.isinterpolation:
-    #         results = [
-    #             [source, ref],
-    #             [ref, source],
-    #         ]
-    #
-    #         for i, img in zip(range(0, len(results)), transfered):
-    #             results[i].append(img)
-    #
-    #         self.imgs_save(results)
-    #
-    #     source = tensor2image(source).squeeze().cpu().numpy().transpose(1, 2, 0)
-    #     ref = tensor2image(ref).squeeze().cpu().numpy().transpose(1, 2, 0)
-    #     transfer = tensor2image(transfered[0]).squeeze().cpu().numpy().transpose(1, 2, 0)
-    #     removal = tensor2image(transfered[2]).squeeze().cpu().numpy().transpose(1, 2, 0)
-    #
-    #     return source, ref, transfer, removal
