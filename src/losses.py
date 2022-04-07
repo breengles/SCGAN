@@ -68,14 +68,16 @@ class GANLoss(nn.Module):
 
 
 class HistogramLoss(nn.Module):
-    def __init__(self, hsv=False, fast_matching=False):
+    def __init__(self, hsv=False, fast_matching=False, l1=True):
         super().__init__()
 
         self.hsv = hsv
         self.fast_matching = fast_matching
 
-        # self.criterion = torch.nn.L1Loss()
-        self.criterion = torch.nn.MSELoss()
+        if l1:
+            self.criterion = torch.nn.L1Loss()
+        else:
+            self.criterion = torch.nn.MSELoss()
 
     def forward(self, input_data, target_data, mask_src, mask_tar, index, ref_data):
         """
