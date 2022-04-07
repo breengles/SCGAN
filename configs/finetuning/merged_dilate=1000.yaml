@@ -41,12 +41,12 @@ fit:
   g_lr: 0.0002
   d_lr: 0.0002
   g_step: 1
-  g_delay: 0
+  g_delay: 1000
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: new_merged | default lambdas | dilate | g_step=1 | g_delay=0
+  name: new_merged | default lambdas | dilate | g_step=1 | g_delay=1000
   group: finetuning
   notes: ~
   local: False

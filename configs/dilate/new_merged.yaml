@@ -7,7 +7,7 @@ img_info:
 
 
 dataset:
-  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.my.cut.crop_beautygan.cut.crop.ffhq.cut.crop
+  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.my.cut.crop.ffhq.cut.crop.pinterest.cut.crop_beautygan.cut.crop.ffhq.cut.crop.pinterest.cut.crop
   eye_box: dilate
 
 model:
@@ -46,6 +46,6 @@ wandb:
   project: SCGAN
   entity: makeup_science
   name: default lambdas | dilate | g_step=1
-  group: beauty + daniil + my + ffhq 
+  group: new_merged 
   notes: ~
   local: False

@@ -29,11 +29,15 @@
 #     ./train.py "$cfg" --seed 42 --local
 # done
 
-./train.py configs/histomatching/fast.yaml --seed 42 --local
+# ./train.py configs/histomatching/fast.yaml --seed 42 --local
+./train.py configs/histomatching/fast_l1.yaml --seed 42 --local
+./train.py configs/histomatching/fast_l1_hsv.yaml --seed 42 --local
 
+./train.py configs/finetuning/merged.yaml --seed 42 --local
+./train.py configs/finetuning/merged_dilate=1000.yaml --seed 42 --local
 
+./train.py configs/dilate/new_merged.yaml --seed 42 --local
 
-./train.py configs/dilate/beauty+daniil+my+ffhq.yaml --seed 42 --local
 
 
 wandb sync wandb/offline-*
