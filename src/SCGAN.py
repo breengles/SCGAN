@@ -45,6 +45,7 @@ class SCGAN(nn.Module):
         vgg_root="vgg",
         hsv=False,
         fast_matching=False,
+        l1=False,
     ):
         super().__init__()
 
@@ -108,7 +109,7 @@ class SCGAN(nn.Module):
         self.criterionL1 = torch.nn.L1Loss()
         self.criterionL2 = torch.nn.MSELoss()
         self.criterionGAN = GANLoss()
-        self.criterionHis = HistogramLoss(hsv=hsv, fast_matching=fast_matching)
+        self.criterionHis = HistogramLoss(hsv=hsv, fast_matching=fast_matching, l1=l1)
 
         # kinda rude
         self.SCGen.cuda()
