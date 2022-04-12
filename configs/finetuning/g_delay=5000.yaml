@@ -31,22 +31,23 @@ model:
   isinterpolation: False
   pretrained_path: checkpoints/G.original.pth
   vgg_root: vgg
+  l1: False
 
 fit:
-  epochs: 100
-  log_step: 10
+  epochs: 50
+  log_step: 1000
   checkpoint_rate: 20
   beta1: 0.5
   beta2: 0.999
   g_lr: 0.0002
   d_lr: 0.0002
   g_step: 1
-  g_delay: 0
+  g_delay: 5000
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: new_merged | default lambdas | dilate | g_step=1 | g_delay=0
+  name: g_delay=5000
   group: finetuning
   notes: ~
   local: False

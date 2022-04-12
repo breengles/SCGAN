@@ -7,7 +7,7 @@ img_info:
 
 
 dataset:
-  dataroot: datasets/merged.128px.cut.crop
+  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.my.cut.crop.ffhq.cut.crop.pinterest.cut.crop_beautygan.cut.crop.ffhq.cut.crop.pinterest.cut.crop
   eye_box: dilate
 
 model:
@@ -29,24 +29,24 @@ model:
   input_nc: 3
   ispartial: False
   isinterpolation: False
-  pretrained_path: ~
+  pretrained_path: checkpoints/G.original.pth
   vgg_root: vgg
-  fast_matching: False
 
 fit:
-  epochs: 100
-  log_step: 100
+  epochs: 50
+  log_step: 1000
   checkpoint_rate: 20
   beta1: 0.5
   beta2: 0.999
   g_lr: 0.0002
   d_lr: 0.0002
   g_step: 1
+  g_delay: 0
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: accurate | rgb
-  group: histomatching
+  name: default lambdas
+  group: finetuning
   notes: ~
   local: False
