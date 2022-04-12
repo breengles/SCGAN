@@ -12,18 +12,23 @@ from torchvision.transforms.functional import hflip
 
 
 class Regions(IntEnum):
-    FACE = 4
-    NOSE = 8
-    RIGHT_EYE = 1
-    LEFT_EYE = 6
-    UPPER_LIP_VERMILLION = 9
-    LOWER_LIP_VERMILLION = 13
-    RIGHT_EYEBROW = 2
-    LEFT_EYEBROW = 7
-    TEETH = 11
-    NECK = 10
-    BACKGROUND = 0
-    HAIR = 12
+    """
+    commented -- original SCGAN labels
+    used -- labels from faceparsing
+    """
+
+    FACE = 1  # 4
+    NOSE = 10  # 8
+    RIGHT_EYE = 5  # 1
+    LEFT_EYE = 4  # 6
+    UPPER_LIP_VERMILLION = 12  # 9
+    LOWER_LIP_VERMILLION = 13  # 13
+    RIGHT_EYEBROW = 3  # 2
+    LEFT_EYEBROW = 2  # 7
+    TEETH = 11  # 11
+    NECK = 14  # 10
+    BACKGROUND = 0  # 0
+    HAIR = 17  # 12
 
 
 def ToTensor(pic):
