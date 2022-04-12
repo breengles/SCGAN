@@ -267,7 +267,7 @@ class PartStyleEncoder(nn.Module):
         return x
 
     def encode(self, x, map_x):
-        for i in range(0, map_x.size(1)):
+        for i in range(map_x.size(1)):
             yi = map_x[:, i, :, :]
             yi = torch.unsqueeze(yi, 1).repeat(1, x.size(1), 1, 1)
             yi = x.mul(yi)
