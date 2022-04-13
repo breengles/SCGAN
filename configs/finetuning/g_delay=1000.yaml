@@ -7,8 +7,9 @@ img_info:
 
 
 dataset:
-  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.my.cut.crop.ffhq.cut.crop.pinterest.cut.crop_beautygan.cut.crop.ffhq.cut.crop.pinterest.cut.crop
+  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.my.cut.crop.ffhq.cut.crop.pinterest.cut.crop_beautygan.cut.crop.ffhq.cut.crop.pinterest.cut.crop_128px
   eye_box: dilate
+  resize: False
 
 model:
   lambda_idt: 0.5

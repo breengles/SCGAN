@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+./train.py configs/histomatching/accurate_l2.yaml --seed 42 --local
 
 ./train.py configs/finetuning/base.yaml --seed 42 --local
 ./train.py configs/finetuning/eye.yaml --seed 42 --local
