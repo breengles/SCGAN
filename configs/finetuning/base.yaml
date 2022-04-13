@@ -1,5 +1,5 @@
 phase: "train"
-batch_size: 1
+batch_size: 2
 
 img_info:
   img_size: 128
@@ -33,9 +33,9 @@ model:
   vgg_root: vgg
 
 fit:
-  epochs: 50
+  epochs: 20
   log_step: 1000
-  checkpoint_rate: 20
+  checkpoint_rate: 5
   beta1: 0.5
   beta2: 0.999
   g_lr: 0.0002

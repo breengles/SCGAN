@@ -1,5 +1,5 @@
 phase: "train"
-batch_size: 1
+batch_size: 2
 
 img_info:
   img_size: 128
