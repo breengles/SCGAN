@@ -98,7 +98,7 @@ class SCDataset(Dataset):
     def pick(self, index):
         nonmakeup_name = self.non_makeup_names[index]
 
-        makeup_index = np.random.randint(0, len(self.makeup_names))
+        makeup_index = torch.randint(low=0, high=len(self.makeup_names), size=(1,))
         makeup_name = self.makeup_names[makeup_index]
 
         return nonmakeup_name, makeup_name
@@ -122,35 +122,34 @@ class SCDataset(Dataset):
         mask_A = self.transform_mask(nonmakeup_seg_img)  # nonmakeup
 
         # augmentations with horizontal flip of image and its mask
-        if np.random.uniform() < self.flip_proba:
+        if torch.rand(1) < self.flip_proba:
             makeup_img = hflip(makeup_img)
             mask_B = hflip(mask_B)
 
-        if np.random.uniform() < self.flip_proba:
+        if torch.rand(1) < self.flip_proba:
             nonmakeup_img = hflip(nonmakeup_img)
             mask_A = hflip(mask_A)
 
         makeup_seg = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float)
         nonmakeup_seg = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float)
 
-        makeup_unchanged = (
-            (mask_B == Regions.LEFT_EYEBROW).float()
-            + (mask_B == Regions.RIGHT_EYEBROW).float()
-            + (mask_B == Regions.LEFT_EYE).float()
-            + (mask_B == Regions.RIGHT_EYE).float()
-            + (mask_B == Regions.TEETH).float()
-        )
-        nonmakeup_unchanged = (
-            (mask_A == Regions.LEFT_EYEBROW).float()
-            + (mask_A == Regions.RIGHT_EYEBROW).float()
-            + (mask_A == Regions.LEFT_EYE).float()
-            + (mask_A == Regions.RIGHT_EYE).float()
-            + (mask_A == Regions.TEETH).float()
-        )
+        # makeup_unchanged = (
+        #     (mask_B == Regions.LEFT_EYEBROW).float()
+        #     + (mask_B == Regions.RIGHT_EYEBROW).float()
+        #     + (mask_B == Regions.LEFT_EYE).float()
+        #     + (mask_B == Regions.RIGHT_EYE).float()
+        #     + (mask_B == Regions.TEETH).float()
+        # )
+        # nonmakeup_unchanged = (
+        #     (mask_A == Regions.LEFT_EYEBROW).float()
+        #     + (mask_A == Regions.RIGHT_EYEBROW).float()
+        #     + (mask_A == Regions.LEFT_EYE).float()
+        #     + (mask_A == Regions.RIGHT_EYE).float()
+        #     + (mask_A == Regions.TEETH).float()
+        # )
 
         mask_A_lip = (mask_A == Regions.UPPER_LIP_VERMILLION).float() + (mask_A == Regions.LOWER_LIP_VERMILLION).float()
         mask_B_lip = (mask_B == Regions.UPPER_LIP_VERMILLION).float() + (mask_B == Regions.LOWER_LIP_VERMILLION).float()
-        # mask_A_lip, mask_B_lip, index_A_lip, index_B_lip = self.mask_preprocess(mask_A_lip, mask_B_lip)
         makeup_seg[0] = mask_B_lip
         nonmakeup_seg[0] = mask_A_lip
 
@@ -160,7 +159,6 @@ class SCDataset(Dataset):
         mask_B_skin = (
             (mask_B == Regions.FACE).float() + (mask_B == Regions.NOSE).float() + (mask_B == Regions.NECK).float()
         )
-        # mask_A_skin, mask_B_skin, index_A_skin, index_B_skin = self.mask_preprocess(mask_A_skin, mask_B_skin)
         makeup_seg[1] = mask_B_skin
         nonmakeup_seg[1] = mask_A_skin
 
@@ -173,17 +171,13 @@ class SCDataset(Dataset):
 
         # avoid the es of ref are closed
         if not ((mask_B_eye_left > 0).any() and (mask_B_eye_right > 0).any()):
-            return {}
+            valid = False
+        else:
+            valid = True
 
         mask_A_eye_left, mask_A_eye_right = self.rebound_box(mask_A_eye_left, mask_A_eye_right, mask_A_face)
         mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
 
-        # mask_A_eye_left, mask_B_eye_left, index_A_eye_left, index_B_eye_left = self.mask_preprocess(
-        #     mask_A_eye_left, mask_B_eye_left
-        # )
-        # mask_A_eye_right, mask_B_eye_right, index_A_eye_right, index_B_eye_right = self.mask_preprocess(
-        #     mask_A_eye_right, mask_B_eye_right
-        # )
         makeup_seg[2] = mask_B_eye_left + mask_B_eye_right
         nonmakeup_seg[2] = mask_A_eye_left + mask_A_eye_right
 
@@ -192,20 +186,12 @@ class SCDataset(Dataset):
         mask_A["mask_A_eye_right"] = mask_A_eye_right
         mask_A["mask_A_skin"] = mask_A_skin
         mask_A["mask_A_lip"] = mask_A_lip
-        # mask_A["index_A_eye_left"] = index_A_eye_left  # проблемы с индексами, если хотим батч > 1
-        # mask_A["index_A_eye_right"] = index_A_eye_right
-        # mask_A["index_A_skin"] = index_A_skin
-        # mask_A["index_A_lip"] = index_A_lip
 
         mask_B = {}
         mask_B["mask_B_eye_left"] = mask_B_eye_left
         mask_B["mask_B_eye_right"] = mask_B_eye_right
         mask_B["mask_B_skin"] = mask_B_skin
         mask_B["mask_B_lip"] = mask_B_lip
-        # mask_B["index_B_eye_left"] = index_B_eye_left
-        # mask_B["index_B_eye_right"] = index_B_eye_right
-        # mask_B["index_B_skin"] = index_B_skin
-        # mask_B["index_B_lip"] = index_B_lip
 
         return {
             "nonmakeup_seg": nonmakeup_seg,
@@ -214,8 +200,9 @@ class SCDataset(Dataset):
             "makeup_img": makeup_img,
             "mask_A": mask_A,
             "mask_B": mask_B,
-            "makeup_unchanged": makeup_unchanged,
-            "nonmakeup_unchanged": nonmakeup_unchanged,
+            # "makeup_unchanged": makeup_unchanged,
+            # "nonmakeup_unchanged": nonmakeup_unchanged,
+            "valid": valid,
         }
 
     def rectangle_box(self, mask_right_eye, mask_left_eye, mask_face):
@@ -281,26 +268,6 @@ class SCDataset(Dataset):
         elif self.eye_box in ("dilate", "d"):
             return self.dilate_box(mask_A, mask_B, mask_A_face)
 
-    def mask_preprocess(self, mask_A, mask_B):
-        mask_A = mask_A.unsqueeze(0)
-        mask_B = mask_B.unsqueeze(0)
-
-        index_tmp = torch.nonzero(mask_A, as_tuple=False)
-        x_A_index = index_tmp[:, 2]
-        y_A_index = index_tmp[:, 3]
-
-        index_tmp = torch.nonzero(mask_B, as_tuple=False)
-        x_B_index = index_tmp[:, 2]
-        y_B_index = index_tmp[:, 3]
-
-        index = [x_A_index, y_A_index, x_B_index, y_B_index]
-        index_2 = [x_B_index, y_B_index, x_A_index, y_A_index]
-
-        mask_A = mask_A.squeeze(0)
-        mask_B = mask_B.squeeze(0)
-
-        return mask_A, mask_B, index, index_2
-
 
 class TransferDataset(SCDataset):
     def __init__(self, *args, **kwargs):
@@ -312,7 +279,7 @@ class TransferDataset(SCDataset):
     def pick(self, index):
         makeup_name = self.makeup_names[index]
 
-        idx = np.random.randint(0, len(self.non_makeup_names))
+        idx = torch.randint(low=0, high=len(self.non_makeup_names), size=(1,))
         nonmakeup_name = self.non_makeup_names[idx]
 
         return nonmakeup_name, makeup_name
