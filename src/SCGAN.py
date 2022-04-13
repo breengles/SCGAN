@@ -142,8 +142,8 @@ class SCGAN(nn.Module):
         self.nonmakeup = input["nonmakeup_img"]
         self.makeup_seg = input["makeup_seg"]
         self.nonmakeup_seg = input["nonmakeup_seg"]
-        self.makeup_unchanged = input["makeup_unchanged"]
-        self.nonmakeup_unchanged = input["nonmakeup_unchanged"]
+        # self.makeup_unchanged = input["makeup_unchanged"]
+        # self.nonmakeup_unchanged = input["nonmakeup_unchanged"]
 
     def to_var(self, x, requires_grad=False):
         if isinstance(x, list):
@@ -156,6 +156,25 @@ class SCGAN(nn.Module):
             return Variable(x, requires_grad=requires_grad)
         else:
             return Variable(x)
+
+    def extract_batch(self, batch):
+        valids = batch["valid"]
+
+        mask_A = {k: v[valids] for k, v in batch["mask_A"].items()}
+        mask_B = {k: v[valids] for k, v in batch["mask_B"].items()}
+
+        out = {
+            "nonmakeup_seg": batch["nonmakeup_seg"][valids],
+            "makeup_seg": batch["makeup_seg"][valids],
+            "nonmakeup_img": batch["nonmakeup_img"][valids],
+            "makeup_img": batch["makeup_img"][valids],
+            "mask_A": mask_A,
+            "mask_B": mask_B,
+            # "makeup_unchanged": makeup_unchanged,
+            # "nonmakeup_unchanged": nonmakeup_unchanged,
+        }
+
+        return out
 
     def fit(
         self,
@@ -185,9 +204,11 @@ class SCGAN(nn.Module):
         it = 0
         for epoch in trange(epochs, desc="Epoch: ", leave=False):
             for data in tqdm(dataloader, desc="Batch: ", leave=False):
-                if len(data) == 0:
+                if sum(data["valid"]) == 0:
                     continue
+
                 it += 1
+                data = self.extract_batch(data)
 
                 loss = {}
 

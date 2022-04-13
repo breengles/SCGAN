@@ -133,13 +133,8 @@ class HistogramLoss(nn.Module):
         source = source.cpu().numpy()
         reference = reference.cpu().numpy()
 
-        # source = np.expand_dims(source, axis=0)
-        # reference = np.expand_dims(reference, axis=0)
-
         oldshape = source.shape
         batch_size = oldshape[0]
-        # source = np.array(source, dtype=np.uint8)
-        # reference = np.array(reference, dtype=np.uint8)
         # get the set of unique pixel values and their corresponding indices and
         # counts
         result = np.zeros_like(source, dtype=np.uint8)
@@ -169,84 +164,4 @@ class HistogramLoss(nn.Module):
                 interp_value[1:] = interp_r_values
                 result[i, c] = interp_value[bin_idx].reshape(oldshape[2], oldshape[3])
 
-        # result = np.array(result, dtype=np.float32)
         return torch.from_numpy(result).to(torch.float32)
-
-
-# def cal_hist(image):
-#     """
-#     cal cumulative hist for channel list
-#     """
-#
-#     hists = []
-#     for i in range(3):
-#         channel = image[i]
-#         channel = torch.from_numpy(channel)
-#         hist = torch.histc(channel, bins=256, min=0, max=256).numpy()
-#
-#         cdf = hist / hist.sum()
-#         for j in range(1, 256):
-#             cdf[j] = cdf[j - 1] + cdf[j]
-#
-#         hists.append(cdf)
-#
-#     return hists
-#
-#
-# def cal_trans(ref, adj):
-#     """
-#     calculate transfer function
-#     algorithm refering to wiki item: Histogram matching
-#     """
-#
-#     table = list(range(256))
-#
-#     for i in list(range(1, 256)):
-#         for j in list(range(1, 256)):
-#             if adj[j - 1] <= ref[i] <= adj[j]:
-#                 table[i] = j
-#                 break
-#
-#     table[255] = 255
-#
-#     return table
-#
-#
-# def match_histogram(dst_img, ref_img, index, fast_matching=False):
-#     """
-#     perform histogram matching
-#     dstImg is transformed to have the same the histogram with refImg's
-#     index[0], index[1]: the index of pixels that need to be transformed in dstImg
-#     index[2], index[3]: the index of pixels that to compute histogram in refImg
-#     """
-#
-#     # faster but less accurate approach
-#     if fast_matching:
-#         dst_img = dst_img.cpu().numpy()
-#         ref_img = ref_img.cpu().numpy()
-#         matched = match_histograms(dst_img, ref_img, channel_axis=0)
-#         return torch.from_numpy(matched).unsqueeze(0)
-#     else:
-#         index = [x.cpu().numpy().squeeze(0) for x in index]
-#
-#         dst_img = dst_img.detach().cpu().numpy()
-#         ref_img = ref_img.detach().cpu().numpy()
-#
-#         dst_align = dst_img[:, index[0], index[1]]
-#         ref_align = ref_img[:, index[2], index[3]]
-#
-#         hist_ref = cal_hist(ref_align)
-#         hist_dst = cal_hist(dst_align)
-#
-#         tables = [cal_trans(hist_dst[i], hist_ref[i]) for i in range(3)]
-#
-#         mid = deepcopy(dst_align)
-#
-#         for i in range(3):
-#             for k in range(len(index[0])):
-#                 dst_align[i, k] = tables[i][int(mid[i, k])]
-#
-#         for i in range(3):
-#             dst_img[i, index[0], index[1]] = dst_align[i]
-#
-#         return torch.tensor(dst_img, dtype=torch.float32).unsqueeze(0)
