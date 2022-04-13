@@ -184,7 +184,7 @@ class SCGAN(nn.Module):
         beta2=0.999,
         g_lr=2e-4,
         d_lr=2e-4,
-        g_step=2e-4,
+        g_step=1,
         g_delay=1,
         log_step=1,
         checkpoint_rate=None,
