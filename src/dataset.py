@@ -150,7 +150,7 @@ class SCDataset(Dataset):
 
         mask_A_lip = (mask_A == Regions.UPPER_LIP_VERMILLION).float() + (mask_A == Regions.LOWER_LIP_VERMILLION).float()
         mask_B_lip = (mask_B == Regions.UPPER_LIP_VERMILLION).float() + (mask_B == Regions.LOWER_LIP_VERMILLION).float()
-        mask_A_lip, mask_B_lip, index_A_lip, index_B_lip = self.mask_preprocess(mask_A_lip, mask_B_lip)
+        # mask_A_lip, mask_B_lip, index_A_lip, index_B_lip = self.mask_preprocess(mask_A_lip, mask_B_lip)
         makeup_seg[0] = mask_B_lip
         nonmakeup_seg[0] = mask_A_lip
 
@@ -160,7 +160,7 @@ class SCDataset(Dataset):
         mask_B_skin = (
             (mask_B == Regions.FACE).float() + (mask_B == Regions.NOSE).float() + (mask_B == Regions.NECK).float()
         )
-        mask_A_skin, mask_B_skin, index_A_skin, index_B_skin = self.mask_preprocess(mask_A_skin, mask_B_skin)
+        # mask_A_skin, mask_B_skin, index_A_skin, index_B_skin = self.mask_preprocess(mask_A_skin, mask_B_skin)
         makeup_seg[1] = mask_B_skin
         nonmakeup_seg[1] = mask_A_skin
 
@@ -178,34 +178,34 @@ class SCDataset(Dataset):
         mask_A_eye_left, mask_A_eye_right = self.rebound_box(mask_A_eye_left, mask_A_eye_right, mask_A_face)
         mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
 
-        mask_A_eye_left, mask_B_eye_left, index_A_eye_left, index_B_eye_left = self.mask_preprocess(
-            mask_A_eye_left, mask_B_eye_left
-        )
-        mask_A_eye_right, mask_B_eye_right, index_A_eye_right, index_B_eye_right = self.mask_preprocess(
-            mask_A_eye_right, mask_B_eye_right
-        )
+        # mask_A_eye_left, mask_B_eye_left, index_A_eye_left, index_B_eye_left = self.mask_preprocess(
+        #     mask_A_eye_left, mask_B_eye_left
+        # )
+        # mask_A_eye_right, mask_B_eye_right, index_A_eye_right, index_B_eye_right = self.mask_preprocess(
+        #     mask_A_eye_right, mask_B_eye_right
+        # )
         makeup_seg[2] = mask_B_eye_left + mask_B_eye_right
         nonmakeup_seg[2] = mask_A_eye_left + mask_A_eye_right
 
         mask_A = {}
         mask_A["mask_A_eye_left"] = mask_A_eye_left
         mask_A["mask_A_eye_right"] = mask_A_eye_right
-        mask_A["index_A_eye_left"] = index_A_eye_left  # проблемы с индексами, если хотим батч > 1
-        mask_A["index_A_eye_right"] = index_A_eye_right
         mask_A["mask_A_skin"] = mask_A_skin
-        mask_A["index_A_skin"] = index_A_skin
         mask_A["mask_A_lip"] = mask_A_lip
-        mask_A["index_A_lip"] = index_A_lip
+        # mask_A["index_A_eye_left"] = index_A_eye_left  # проблемы с индексами, если хотим батч > 1
+        # mask_A["index_A_eye_right"] = index_A_eye_right
+        # mask_A["index_A_skin"] = index_A_skin
+        # mask_A["index_A_lip"] = index_A_lip
 
         mask_B = {}
         mask_B["mask_B_eye_left"] = mask_B_eye_left
         mask_B["mask_B_eye_right"] = mask_B_eye_right
-        mask_B["index_B_eye_left"] = index_B_eye_left
-        mask_B["index_B_eye_right"] = index_B_eye_right
         mask_B["mask_B_skin"] = mask_B_skin
-        mask_B["index_B_skin"] = index_B_skin
         mask_B["mask_B_lip"] = mask_B_lip
-        mask_B["index_B_lip"] = index_B_lip
+        # mask_B["index_B_eye_left"] = index_B_eye_left
+        # mask_B["index_B_eye_right"] = index_B_eye_right
+        # mask_B["index_B_skin"] = index_B_skin
+        # mask_B["index_B_lip"] = index_B_lip
 
         return {
             "nonmakeup_seg": nonmakeup_seg,

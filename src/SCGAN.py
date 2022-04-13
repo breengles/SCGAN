@@ -14,8 +14,6 @@ from .losses import GANLoss, HistogramLoss
 from .utils import wandb_save_images
 from .vgg import VGG
 
-from matplotlib import pyplot as plt
-
 
 class SCGAN(nn.Module):
     def __init__(
@@ -278,12 +276,7 @@ class SCGAN(nn.Module):
                     if self.lips:
                         g_A_lip_loss_his = (
                             self.criterionHis(
-                                fake_makeup,
-                                makeup,
-                                mask_nonmakeup["mask_A_lip"],
-                                mask_makeup["mask_B_lip"],
-                                mask_nonmakeup["index_A_lip"],
-                                nonmakeup,
+                                fake_makeup, makeup, mask_nonmakeup["mask_A_lip"], mask_makeup["mask_B_lip"], nonmakeup,
                             )
                             * self.lambda_his_lip
                         )
@@ -293,7 +286,6 @@ class SCGAN(nn.Module):
                                 nonmakeup,
                                 mask_makeup["mask_B_lip"],
                                 mask_nonmakeup["mask_A_lip"],
-                                mask_makeup["index_B_lip"],
                                 makeup,
                             )
                             * self.lambda_his_lip
@@ -308,7 +300,6 @@ class SCGAN(nn.Module):
                                 makeup,
                                 mask_nonmakeup["mask_A_skin"],
                                 mask_makeup["mask_B_skin"],
-                                mask_nonmakeup["index_A_skin"],
                                 nonmakeup,
                             )
                             * self.lambda_his_skin
@@ -319,7 +310,6 @@ class SCGAN(nn.Module):
                                 nonmakeup,
                                 mask_makeup["mask_B_skin"],
                                 mask_nonmakeup["mask_A_skin"],
-                                mask_makeup["index_B_skin"],
                                 makeup,
                             )
                             * self.lambda_his_skin
@@ -334,7 +324,6 @@ class SCGAN(nn.Module):
                                 makeup,
                                 mask_nonmakeup["mask_A_eye_left"],
                                 mask_makeup["mask_B_eye_left"],
-                                mask_nonmakeup["index_A_eye_left"],
                                 nonmakeup,
                             )
                             * self.lambda_his_eye
@@ -345,7 +334,6 @@ class SCGAN(nn.Module):
                                 nonmakeup,
                                 mask_makeup["mask_B_eye_left"],
                                 mask_nonmakeup["mask_A_eye_left"],
-                                mask_makeup["index_B_eye_left"],
                                 makeup,
                             )
                             * self.lambda_his_eye
@@ -356,7 +344,6 @@ class SCGAN(nn.Module):
                                 makeup,
                                 mask_nonmakeup["mask_A_eye_right"],
                                 mask_makeup["mask_B_eye_right"],
-                                mask_nonmakeup["index_A_eye_right"],
                                 nonmakeup,
                             )
                             * self.lambda_his_eye
@@ -367,7 +354,6 @@ class SCGAN(nn.Module):
                                 nonmakeup,
                                 mask_makeup["mask_B_eye_right"],
                                 mask_nonmakeup["mask_A_eye_right"],
-                                mask_makeup["index_B_eye_right"],
                                 makeup,
                             )
                             * self.lambda_his_eye
