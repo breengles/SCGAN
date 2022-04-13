@@ -60,7 +60,7 @@ def ToTensor(pic):
 
 
 class SCDataset(Dataset):
-    def __init__(self, dataroot, img_size, n_components, eye_box="rectangle"):
+    def __init__(self, dataroot, img_size, n_components, eye_box="rectangle", resize=True):
         self.dataroot = dataroot
         self.img_size = img_size
         self.n_components = n_components
@@ -77,17 +77,18 @@ class SCDataset(Dataset):
         self.makeup_names = os.listdir(self.dir_img_makeup)
         self.non_makeup_names = os.listdir(self.dir_img_nonmakeup)
 
-        self.transform = transforms.Compose(
-            [
-                transforms.Resize((img_size, img_size)),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
-            ]
-        )
+        transform = []
+        transform_mask = []
 
-        self.transform_mask = transforms.Compose(
-            [transforms.Resize((img_size, img_size), interpolation=InterpolationMode.NEAREST), ToTensor]
-        )
+        if resize:
+            transform.append(transforms.Resize((img_size, img_size)))
+            transform_mask.append(transforms.Resize((img_size, img_size), interpolation=InterpolationMode.NEAREST))
+
+        transform.extend([transforms.ToTensor(), transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
+        transform_mask.append(ToTensor)
+
+        self.transform = transforms.Compose(transform)
+        self.transform_mask = transforms.Compose(transform_mask)
 
         self.flip_proba = 0.5
         self.dilation_kernel = np.ones((3, 3), dtype=np.uint8)
