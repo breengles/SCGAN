@@ -1,0 +1,54 @@
+phase: "train"
+batch_size: 2
+
+img_info:
+  img_size: 128
+  n_components: 3
+
+
+dataset:
+  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.ffhq.cut.crop.my.cut.crop.pinterest.cut.crop_beautygan.cut.crop.ffhq.cut.crop.pinterest.cut.crop_128px
+  eye_box: dilate
+  resize: False
+
+model:
+  lambda_idt: 0.5
+  lambda_A: 10.0
+  lambda_B: 10.0
+  lambda_his_lip: 1.0
+  lambda_his_skin: 0.005
+  lambda_his_eye: 5.0
+  lambda_vgg: 0.005
+  d_conv_dim: 64
+  d_repeat_num: 3
+  ngf: 64
+  norm1: SN
+  style_dim: 192
+  n_downsampling: 2
+  n_res: 3
+  mlp_dim: 256
+  input_nc: 3
+  ispartial: False
+  isinterpolation: False
+  pretrained_path: checkpoints/G.original.pth
+  vgg_root: vgg
+  l1: False
+
+fit:
+  epochs: 20
+  log_step: 1000
+  checkpoint_rate: 5
+  beta1: 0.5
+  beta2: 0.999
+  g_lr: 0.0002
+  d_lr: 0.0002
+  g_step: 1
+  g_delay: 0
+
+wandb:
+  project: SCGAN
+  entity: makeup_science
+  name: eye=5 skin=0.005
+  group: finetuning
+  notes: ~
+  local: False
