@@ -25,3 +25,4 @@ results/
 scgan.zip
 
 wandb/
+transfer_results/

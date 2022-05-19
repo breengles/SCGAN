@@ -46,6 +46,7 @@ def init_wandb(global_cfg):
 def main():
     parser = ArgumentParser()
     parser.add_argument("config", type=str)
+    parser.add_argument("--no_test", action="store_true")
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--local", action="store_true")
@@ -62,10 +63,16 @@ def main():
     cfg = init_wandb(cfg)
 
     dataset = SCDataset(**cfg["img_info"], **cfg["dataset"])
-    dataloader = DataLoader(dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=args.num_workers)
+    trainloader = DataLoader(dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=args.num_workers)
 
     model = SCGAN(phase=cfg["phase"], **cfg["img_info"], **cfg["model"]).to(args.device)
-    model.fit(dataloader, **cfg["fit"])
+
+    if args.no_test:
+        model.fit(trainloader, **cfg["fit"])
+    else:
+        # currently the same dataset
+        testloader = DataLoader(dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=args.num_workers)
+        model.fit(trainloader, testloader, **cfg["fit"])
 
 
 if __name__ == "__main__":

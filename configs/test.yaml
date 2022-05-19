@@ -7,7 +7,7 @@ img_info:
 
 
 dataset:
-  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.my.cut.crop.ffhq.cut.crop.pinterest.cut.crop_beautygan.cut.crop.ffhq.cut.crop.pinterest.cut.crop
+  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.ffhq.cut.crop.my.cut.crop.pinterest.cut.crop_beautygan.cut.crop.ffhq.cut.crop.pinterest.cut.crop_128px
   eye_box: dilate
 
 model:
@@ -29,7 +29,7 @@ model:
   input_nc: 3
   ispartial: False
   isinterpolation: False
-  pretrained_path: ~
+  pretrained_path: checkpoints/G.original.pth
   vgg_root: vgg
   fast_matching: False
   l1: False

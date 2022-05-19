@@ -5,13 +5,14 @@ import wandb
 from torch import nn
 from torch.autograd import Variable
 from torch.optim import Adam
+from torchvision.utils import make_grid
 from tqdm.auto import tqdm, trange
 
 from src.SCGen import SCGen
 from . import net_utils
 from .SCDis import SCDis
 from .losses import GANLoss, HistogramLoss
-from .utils import wandb_save_images
+from .utils import tensor2image, wandb_save_images
 from .vgg import VGG
 
 
@@ -179,6 +180,7 @@ class SCGAN(nn.Module):
     def fit(
         self,
         dataloader,
+        testloader=None,
         epochs=1,
         beta1=0.5,
         beta2=0.999,
@@ -429,7 +431,14 @@ class SCGAN(nn.Module):
 
                 if (it + 1) % log_step == 0:
                     wandb.log(loss)
-                    wandb_save_images([nonmakeup, makeup, fake_makeup, fake_nonmakeup])
+                    if testloader is not None:
+                        self.test_transfer(dataloader, max_iter=16)
+                    else:
+                        results = []
+                        for nonmakeup_img, makeup_img, results_img in zip(nonmakeup, makeup, fake_makeup):
+                            res = tensor2image(torch.stack([nonmakeup_img, makeup_img, results_img]))
+                            results.append(make_grid(res, nrow=3))
+                        wandb_save_images(results)
 
             if checkpoint_rate is not None and (epoch + 1) % checkpoint_rate == 0:
                 checkpoint_path = os.path.join(checkpoint_dir, f"{epoch + 1}.pth")
@@ -443,6 +452,38 @@ class SCGAN(nn.Module):
                     checkpoint_path,
                 )
                 wandb.save(checkpoint_path, base_path=checkpoint_dir, policy="end")
+
+    @torch.no_grad()
+    def test_transfer(self, dataloader, max_iter=-1):
+        self.SCGen.eval()
+
+        results = []
+
+        it = 0
+        for data in dataloader:
+            if it >= max_iter:
+                break
+
+            if data["valid"].sum() == 0:
+                continue
+
+            it += data["valid"].sum()
+
+            data = self.extract_batch(data)
+
+            nonmakeup = data["nonmakeup_img"].to(self.SCGen.device)
+            makeup = data["makeup_img"].to(self.SCGen.device)
+            makeup_seg = data["makeup_seg"].to(self.SCGen.device)
+
+            result = self.SCGen.transfer(nonmakeup, makeup, makeup_seg)
+
+            for nonmakeup_img, makeup_img, results_img in zip(nonmakeup, makeup, result):
+                res = tensor2image(torch.stack([nonmakeup_img, makeup_img, results_img]))
+                results.append(make_grid(res, nrow=3))
+
+        wandb_save_images(results)
+
+        self.SCGen.train()
 
     @torch.no_grad()
     def test(self):

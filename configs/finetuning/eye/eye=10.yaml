@@ -17,7 +17,7 @@ model:
   lambda_B: 10.0
   lambda_his_lip: 1.0
   lambda_his_skin: 0.005
-  lambda_his_eye: 5.0
+  lambda_his_eye: 10.0
   lambda_vgg: 0.005
   d_conv_dim: 64
   d_repeat_num: 3
@@ -48,7 +48,7 @@ fit:
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: eye=5 skin=0.005
+  name: eye=10 skin=0.005
   group: finetuning
   notes: ~
   local: False

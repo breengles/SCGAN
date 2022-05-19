@@ -94,45 +94,104 @@ class SCDataset(Dataset):
         self.dilation_kernel = np.ones((3, 3), dtype=np.uint8)
 
     def __len__(self):
-        return len(self.non_makeup_names)
+        return len(self.makeup_names)
 
     def pick(self, index):
-        nonmakeup_name = self.non_makeup_names[index]
+        makeup_name = self.makeup_names[index]
 
-        makeup_index = torch.randint(low=0, high=len(self.makeup_names), size=(1,))
-        makeup_name = self.makeup_names[makeup_index]
+        nonmakeup_index = torch.randint(low=0, high=len(self.non_makeup_names), size=(1,))
+        nonmakeup_name = self.non_makeup_names[nonmakeup_index]
 
         return nonmakeup_name, makeup_name
 
-    def __getitem__(self, index):
-        nonmakeup_name, makeup_name = self.pick(index)
-
-        makeup_path = os.path.join(self.dir_img_makeup, makeup_name)
+    def get_nonmakeup_img_seg(self, nonmakeup_name):
         nonmakeup_path = os.path.join(self.dir_img_nonmakeup, nonmakeup_name)
-
-        makeup_img = Image.open(makeup_path).convert("RGB")
         nonmakeup_img = Image.open(nonmakeup_path).convert("RGB")
-
-        makeup_seg_img = Image.open(os.path.join(self.dir_seg_makeup, makeup_name))
         nonmakeup_seg_img = Image.open(os.path.join(self.dir_seg_nonmakeup, nonmakeup_name))
-
-        makeup_img = self.transform(makeup_img)
         nonmakeup_img = self.transform(nonmakeup_img)
 
-        mask_B = self.transform_mask(makeup_seg_img)  # makeup
         mask_A = self.transform_mask(nonmakeup_seg_img)  # nonmakeup
-
-        # augmentations with horizontal flip of image and its mask
-        if torch.rand(1) < self.flip_proba:
-            makeup_img = hflip(makeup_img)
-            mask_B = hflip(mask_B)
-
+        
         if torch.rand(1) < self.flip_proba:
             nonmakeup_img = hflip(nonmakeup_img)
             mask_A = hflip(mask_A)
 
-        makeup_seg = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float)
         nonmakeup_seg = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float)
+        
+        mask_A_lip = (mask_A == Regions.UPPER_LIP_VERMILLION).float() + (mask_A == Regions.LOWER_LIP_VERMILLION).float()
+        mask_A_skin = (
+            (mask_A == Regions.FACE).float() + (mask_A == Regions.NOSE).float() + (mask_A == Regions.NECK).float()
+        )
+        mask_A_eye_left = (mask_A == Regions.LEFT_EYE).float()
+        mask_A_eye_right = (mask_A == Regions.RIGHT_EYE).float()
+        mask_A_face = (mask_A == Regions.FACE).float() + (mask_A == Regions.NOSE).float()
+        mask_A_eye_left, mask_A_eye_right = self.rebound_box(mask_A_eye_left, mask_A_eye_right, mask_A_face)
+
+        nonmakeup_seg[0] = mask_A_lip
+        nonmakeup_seg[1] = mask_A_skin
+        nonmakeup_seg[2] = mask_A_eye_left + mask_A_eye_right
+        
+        mask_A = {}
+        mask_A["mask_A_eye_left"] = mask_A_eye_left
+        mask_A["mask_A_eye_right"] = mask_A_eye_right
+        mask_A["mask_A_skin"] = mask_A_skin
+        mask_A["mask_A_lip"] = mask_A_lip
+        
+        return nonmakeup_img, nonmakeup_seg, mask_A
+
+
+    def get_makeup_img_seg(self, makeup_name):
+        makeup_path = os.path.join(self.dir_img_makeup, makeup_name)
+        makeup_img = Image.open(makeup_path).convert("RGB")
+        makeup_seg_img = Image.open(os.path.join(self.dir_seg_makeup, makeup_name))
+        makeup_img = self.transform(makeup_img)
+        mask_B = self.transform_mask(makeup_seg_img)  # makeup
+        
+        if torch.rand(1) < self.flip_proba:
+            makeup_img = hflip(makeup_img)
+            mask_B = hflip(mask_B)
+            
+        makeup_seg = torch.zeros([self.n_components, self.img_size, self.img_size], dtype=torch.float)
+        
+        mask_B_lip = (mask_B == Regions.UPPER_LIP_VERMILLION).float() + (mask_B == Regions.LOWER_LIP_VERMILLION).float()
+        
+        mask_B_skin = (
+            (mask_B == Regions.FACE).float() + (mask_B == Regions.NOSE).float() + (mask_B == Regions.NECK).float()
+        )
+        
+        mask_B_eye_left = (mask_B == Regions.LEFT_EYE).float()
+        mask_B_eye_right = (mask_B == Regions.RIGHT_EYE).float()
+        
+        
+        mask_B_face = (mask_B == Regions.FACE).float() + (mask_B == Regions.NOSE).float()
+            
+        # avoid the es of ref are closed
+        if not ((mask_B_eye_left > 0).any() and (mask_B_eye_right > 0).any()):
+            valid = False
+        else:
+            valid = True
+            
+        if valid:
+            mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
+        
+        makeup_seg[0] = mask_B_lip
+        makeup_seg[1] = mask_B_skin
+        makeup_seg[2] = mask_B_eye_left + mask_B_eye_right
+        
+        mask_B = {}
+        mask_B["mask_B_eye_left"] = mask_B_eye_left
+        mask_B["mask_B_eye_right"] = mask_B_eye_right
+        mask_B["mask_B_skin"] = mask_B_skin
+        mask_B["mask_B_lip"] = mask_B_lip
+        
+        return makeup_img, makeup_seg, mask_B, valid
+        
+
+    def __getitem__(self, index):
+        nonmakeup_name, makeup_name = self.pick(index)
+        
+        nonmakeup_img, nonmakeup_seg, mask_A = self.get_nonmakeup_img_seg(nonmakeup_name)
+        makeup_img, makeup_seg, mask_B, valid = self.get_makeup_img_seg(makeup_name)
 
         # makeup_unchanged = (
         #     (mask_B == Regions.LEFT_EYEBROW).float()
@@ -148,51 +207,6 @@ class SCDataset(Dataset):
         #     + (mask_A == Regions.RIGHT_EYE).float()
         #     + (mask_A == Regions.TEETH).float()
         # )
-
-        mask_A_lip = (mask_A == Regions.UPPER_LIP_VERMILLION).float() + (mask_A == Regions.LOWER_LIP_VERMILLION).float()
-        mask_B_lip = (mask_B == Regions.UPPER_LIP_VERMILLION).float() + (mask_B == Regions.LOWER_LIP_VERMILLION).float()
-        makeup_seg[0] = mask_B_lip
-        nonmakeup_seg[0] = mask_A_lip
-
-        mask_A_skin = (
-            (mask_A == Regions.FACE).float() + (mask_A == Regions.NOSE).float() + (mask_A == Regions.NECK).float()
-        )
-        mask_B_skin = (
-            (mask_B == Regions.FACE).float() + (mask_B == Regions.NOSE).float() + (mask_B == Regions.NECK).float()
-        )
-        makeup_seg[1] = mask_B_skin
-        nonmakeup_seg[1] = mask_A_skin
-
-        mask_A_eye_left = (mask_A == Regions.LEFT_EYE).float()
-        mask_A_eye_right = (mask_A == Regions.RIGHT_EYE).float()
-        mask_B_eye_left = (mask_B == Regions.LEFT_EYE).float()
-        mask_B_eye_right = (mask_B == Regions.RIGHT_EYE).float()
-        mask_A_face = (mask_A == Regions.FACE).float() + (mask_A == Regions.NOSE).float()
-        mask_B_face = (mask_B == Regions.FACE).float() + (mask_B == Regions.NOSE).float()
-
-        # avoid the es of ref are closed
-        if not ((mask_B_eye_left > 0).any() and (mask_B_eye_right > 0).any()):
-            valid = False
-        else:
-            valid = True
-
-        mask_A_eye_left, mask_A_eye_right = self.rebound_box(mask_A_eye_left, mask_A_eye_right, mask_A_face)
-        mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left, mask_B_eye_right, mask_B_face)
-
-        makeup_seg[2] = mask_B_eye_left + mask_B_eye_right
-        nonmakeup_seg[2] = mask_A_eye_left + mask_A_eye_right
-
-        mask_A = {}
-        mask_A["mask_A_eye_left"] = mask_A_eye_left
-        mask_A["mask_A_eye_right"] = mask_A_eye_right
-        mask_A["mask_A_skin"] = mask_A_skin
-        mask_A["mask_A_lip"] = mask_A_lip
-
-        mask_B = {}
-        mask_B["mask_B_eye_left"] = mask_B_eye_left
-        mask_B["mask_B_eye_right"] = mask_B_eye_right
-        mask_B["mask_B_skin"] = mask_B_skin
-        mask_B["mask_B_lip"] = mask_B_lip
 
         return {
             "nonmakeup_seg": nonmakeup_seg,
@@ -273,14 +287,23 @@ class SCDataset(Dataset):
 class TransferDataset(SCDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.flip_proba = 0
 
     def __len__(self):
-        return len(self.makeup_names)
+        return len(self.makeup_names) * len(self.non_makeup_names)
+
+    def get_nonmakeup_img_seg(self, nonmakeup_name):
+        nonmakeup_path = os.path.join(self.dir_img_nonmakeup, nonmakeup_name)
+        nonmakeup_img = Image.open(nonmakeup_path).convert("RGB")
+        nonmakeup_img = self.transform(nonmakeup_img)
+
+        return nonmakeup_img, torch.zeros_like(nonmakeup_img), {}
 
     def pick(self, index):
-        makeup_name = self.makeup_names[index]
+        makeup_idx = index % len(self.non_makeup_names)
+        nonmakeup_idx = index // len(self.makeup_names)
 
-        idx = torch.randint(low=0, high=len(self.non_makeup_names), size=(1,))
-        nonmakeup_name = self.non_makeup_names[idx]
+        makeup_name = self.makeup_names[makeup_idx]
+        nonmakeup_name = self.non_makeup_names[nonmakeup_idx]
 
         return nonmakeup_name, makeup_name

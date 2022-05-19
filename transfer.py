@@ -2,6 +2,7 @@
 
 
 from argparse import ArgumentParser
+import os
 
 import torch
 import yaml
@@ -12,6 +13,9 @@ from tqdm.auto import tqdm
 from src.SCGen import SCGen
 from src.dataset import TransferDataset
 from src.utils import tensor2image
+from torchvision.utils import make_grid
+from PIL import Image
+import numpy as np
 
 
 def main():
@@ -55,7 +59,9 @@ def main():
 
     model.to(args.device).eval()
 
-    for data in tqdm(dataloader):
+    os.makedirs("transfer_results", exist_ok=True)
+
+    for idx, data in enumerate(tqdm(dataloader)):
         makeup = data["makeup_img"].to(args.device)
         nonmakeup = data["nonmakeup_img"].to(args.device)
         makeup_seg = data["makeup_seg"].to(args.device)
@@ -63,18 +69,14 @@ def main():
         with torch.no_grad():
             result = model.transfer(nonmakeup, makeup, makeup_seg)
 
-        nonmakeup = tensor2image(nonmakeup).squeeze(0).permute(1, 2, 0).cpu().numpy()
-        makeup = tensor2image(makeup).squeeze(0).permute(1, 2, 0).cpu().numpy()
-        result = tensor2image(result).squeeze(0).permute(1, 2, 0).cpu().numpy()
+        grid = tensor2image(make_grid([nonmakeup.squeeze(0), makeup.squeeze(0), result.squeeze(0)]))
+        grid = grid.permute(1, 2, 0).cpu().numpy() * 255
 
-        fig, ax = plt.subplots(1, 3)
-        ax[0].imshow(nonmakeup)
-        ax[1].imshow(makeup)
-        ax[2].imshow(result)
+        # plt.imshow(grid)
+        # plt.axis("off")
+        # plt.show()
 
-        plt.show()
-
-        exit()
+        Image.fromarray(grid.astype(np.uint8)).save(f"transfer_results/{idx}.png")
 
 
 if __name__ == "__main__":

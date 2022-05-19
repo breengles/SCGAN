@@ -1,15 +1,14 @@
-phase: "train"
-batch_size: 2
+phase: "test"
+batch_size: 1
 
 img_info:
-  img_size: 128
+  img_size: 256
   n_components: 3
 
 
 dataset:
-  dataroot: datasets/MT-beautygan.cut.crop.daniil.cut.crop.ffhq.cut.crop.my.cut.crop.pinterest.cut.crop_beautygan.cut.crop.ffhq.cut.crop.pinterest.cut.crop_128px
-  eye_box: dilate
-  resize: False
+  dataroot: datasets/test
+  eye_box: rect
 
 model:
   lambda_idt: 0.5
@@ -30,25 +29,23 @@ model:
   input_nc: 3
   ispartial: False
   isinterpolation: False
-  pretrained_path: checkpoints/G.original.pth
+  pretrained_path: ~
   vgg_root: vgg
-  l1: False
 
 fit:
-  epochs: 20
-  log_step: 1000
-  checkpoint_rate: 5
+  epochs: 100
+  log_step: 10
+  checkpoint_rate: 20
   beta1: 0.5
   beta2: 0.999
   g_lr: 0.0002
   d_lr: 0.0002
   g_step: 1
-  g_delay: 10000
 
 wandb:
   project: SCGAN
   entity: makeup_science
-  name: g_delay=10000
-  group: finetuning
+  name: default lambdas | dilate | g_step=1
+  group: merged
   notes: ~
   local: False
